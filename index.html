@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TWS 试产长周期物料追踪面板</title>
+    <script>
+      window.onerror = function(msg, url, line, col, err) {
+        document.getElementById('root').innerHTML =
+          '<div style="padding:40px;font-family:sans-serif;color:#c00">' +
+          '<h2>页面加载错误</h2>' +
+          '<pre>' + msg + '</pre>' +
+          '<pre>' + (err && err.stack ? err.stack : '') + '</pre>' +
+          '</div>';
+        console.error('Global error:', msg, err);
+        return true;
+      };
+    </script>
+  </head>
+  <body style="background-color: #f8fafc;">
+    <div id="root">加载中...</div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
