@@ -149,7 +149,7 @@ import {
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="bg-slate-700 text-white">
+                <tr className="table-header">
                   <th className="text-left py-2 px-2 font-medium border border-slate-600 min-w-[140px]">Key Milestones</th>
                   {columns.map((col) => (
                     <th key={col.id} className="text-left py-1.5 px-2 border border-slate-600 min-w-[120px]">
@@ -955,7 +955,7 @@ function ProjectPlanPage({ projectName, onBack, onSave, planPages: initialPlanPa
           <div className="overflow-auto flex-1">
             <table className="w-full text-sm border-collapse">
               <thead className="sticky top-0 z-10">
-                <tr className="bg-slate-700 text-white">
+                <tr className="table-header">
                   <th className="text-left py-2 px-2 font-medium border border-slate-600 min-w-[40px] sticky left-0 bg-slate-700 z-20">展开</th>
                   <th className="text-left py-2 px-2 font-medium border border-slate-600 min-w-[180px] sticky left-[40px] bg-slate-700 z-20">任务名称</th>
                   <th className="text-left py-2 px-2 font-medium border border-slate-600 min-w-[100px]">开始时间</th>
@@ -1131,12 +1131,12 @@ function ProjectPlanPage({ projectName, onBack, onSave, planPages: initialPlanPa
         <div className="flex items-center gap-2">
           <button
             onClick={onBack}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+            className="btn-ghost btn-sm"
           >
             <ArrowLeft className="w-4 h-4" />
-            返回物料追踪
+            返回
           </button>
-          <h2 className="text-base font-semibold text-slate-800">{projectName || '未命名项目'} · 项目计划</h2>
+          <h2 className="text-base font-semibold text-surface-800">{projectName || '未命名项目'} · 项目计划</h2>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -3147,14 +3147,14 @@ export default function App() {
             <div className="flex flex-wrap items-center gap-2 mb-6">
               <button
                 onClick={handleNewProject}
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700"
+                className="btn-primary"
               >
                 <Plus className="w-4 h-4" />
                 新建项目
               </button>
               <button
                 onClick={handleExportBackup}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                className="btn-secondary"
               >
                 <Download className="w-4 h-4" />
                 导出/备份
@@ -3162,7 +3162,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleRestoreFromBackup}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                className="btn-secondary"
               >
                 从备份恢复
               </button>
@@ -3216,11 +3216,11 @@ export default function App() {
       {/* 编辑页：项目名称 + 保存 + 返回 */}
       {view === 'editor' && (
         <>
-      <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm">
+      <header className="bg-white border-b border-surface-200 px-6 py-4 shadow-card">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex flex-wrap items-center gap-3">
             {projectProductImage && (
-              <div className="w-14 h-14 rounded-lg border border-slate-200 overflow-hidden bg-slate-100 shrink-0">
+              <div className="w-14 h-14 rounded-lg border border-surface-200 overflow-hidden bg-surface-100 shrink-0">
                 <img src={projectProductImage} alt="产品图" className="w-full h-full object-contain" />
               </div>
             )}
@@ -3230,9 +3230,9 @@ export default function App() {
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
                 placeholder="项目名称"
-                className="rounded-lg border border-slate-300 px-3 py-2 text-lg font-semibold text-slate-800 min-w-[200px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="input text-lg font-semibold min-w-[200px]"
               />
-              <label className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer">
+              <label className="btn-secondary cursor-pointer">
                 <span>上传产品图</span>
                 <input
                   type="file"
@@ -3260,14 +3260,14 @@ export default function App() {
             />
             <button
               onClick={() => { setShowInternalVersionModal(true); setInternalVersionValue(internalVersion) }}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 min-w-[120px] text-left hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 truncate"
+              className="btn-secondary text-sm min-w-[120px] text-left truncate"
               title={internalVersion || '点击输入内部版本号'}
             >
               {internalVersion || <span className="text-slate-400">内部版本号</span>}
             </button>
             <button
               onClick={handleSave}
-              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 text-white px-4 py-2 text-sm font-medium hover:bg-indigo-700 transition-colors"
+              className="btn-primary"
             >
               <Save className="w-4 h-4" />
               保存
@@ -3276,64 +3276,64 @@ export default function App() {
           <div className="flex flex-wrap items-center gap-1.5">
             <button
               onClick={handleBackToList}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+              className="btn-ghost btn-sm"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               返回
             </button>
-            <span className="w-px h-6 bg-slate-200 mx-1"></span>
+            <span className="w-px h-5 bg-surface-200"></span>
             <button
               onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectPlan(false); setShowProjectMembers(false); setShowWorkbook(false); setShowProductSpec(true) }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 transition-colors"
+              className="btn-ghost btn-sm"
             >
               <Box className="w-3.5 h-3.5" />
               产品规格
             </button>
             <button
               onClick={() => { setModalOpen(false); setShowProjectPlan(false); setShowProjectMembers(false); setShowWorkbook(false); setShowProductSpec(false); setShowDistributionList(true) }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 transition-colors"
+              className="btn-ghost btn-sm"
             >
               <ClipboardList className="w-3.5 h-3.5" />
               样机分发
             </button>
             <button
               onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectMembers(false); setShowWorkbook(false); setShowProductSpec(false); setShowProjectPlan(true) }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 transition-colors"
+              className="btn-ghost btn-sm"
             >
               <Calendar className="w-3.5 h-3.5" />
               项目计划
             </button>
             <button
               onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectPlan(false); setShowWorkbook(false); setShowProductSpec(false); setShowProjectMembers(true) }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 transition-colors"
+              className="btn-ghost btn-sm"
             >
               <Users className="w-3.5 h-3.5" />
               项目成员
             </button>
             <button
               onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectPlan(false); setShowProjectMembers(false); setShowProductSpec(false); setShowTechReserve(true); setShowWorkbook(false) }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 transition-colors"
+              className="btn-ghost btn-sm"
             >
               <Layers className="w-3.5 h-3.5" />
               技术储备
             </button>
             <button
               onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectPlan(false); setShowProjectMembers(false); setShowProductSpec(false); setShowTechReserve(false); setShowWorkbook(true) }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 transition-colors"
+              className="btn-ghost btn-sm"
             >
               <BookOpen className="w-3.5 h-3.5" />
               项目问题点
             </button>
             <button
               onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectPlan(false); setShowProjectMembers(false); setShowProductSpec(false); setShowTechReserve(false); setShowWorkbook(false); setShowTrialIssues(true) }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 transition-colors"
+              className="btn-ghost btn-sm"
             >
               <AlertCircle className="w-3.5 h-3.5" />
               试产问题点
             </button>
             <button
               onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectPlan(false); setShowProjectMembers(false); setShowProductSpec(false); setShowTechReserve(false); setShowWorkbook(false); setShowTrialIssues(false); setShowFileLibrary(true) }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 transition-colors"
+              className="btn-ghost btn-sm"
             >
               <FolderOpen className="w-3.5 h-3.5" />
               文件资料
@@ -3350,12 +3350,12 @@ export default function App() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowProductSpec(false)}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                className="btn-ghost"
               >
                 <ArrowLeft className="w-4 h-4" />
-                返回物料追踪
+                返回
               </button>
-              <h2 className="text-lg font-semibold text-slate-800">产品规格</h2>
+              <h2 className="text-lg font-semibold text-surface-800">产品规格</h2>
             </div>
             <div className="flex items-center gap-3">
               {productSpecSaveHint && (
@@ -3364,7 +3364,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => { handleSave(); setProductSpecSaveHint(true); setTimeout(() => setProductSpecSaveHint(false), 2000) }}
-                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 text-white px-4 py-2 text-sm font-medium hover:bg-emerald-700"
+                className="btn-success"
               >
                 <Save className="w-4 h-4" />
                 保存到当前项目
@@ -3374,7 +3374,7 @@ export default function App() {
           <p className="text-slate-600 text-sm mb-6">填写耳机产品规格，便于项目对齐与评审。以下项均可选择或输入，保存后写入当前项目。</p>
 
           {/* 1. 版本架构 */}
-          <section className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden mb-6">
+          <section className="card overflow-hidden mb-6">
             <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
               <Layers className="w-4 h-4 text-slate-500" />
               <h3 className="text-base font-semibold text-slate-800">版本架构说明 (Version Architecture)</h3>
@@ -3410,7 +3410,7 @@ export default function App() {
           </section>
 
           {/* 2. 交互与感应 */}
-          <section className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden mb-6">
+          <section className="card overflow-hidden mb-6">
             <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
               <Hand className="w-4 h-4 text-slate-500" />
               <h3 className="text-base font-semibold text-slate-800">交互与感应系统 (Interaction & Sensing)</h3>
@@ -3459,7 +3459,7 @@ export default function App() {
           </section>
 
           {/* 3. 音频与通话 */}
-          <section className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden mb-6">
+          <section className="card overflow-hidden mb-6">
             <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
               <Headphones className="w-4 h-4 text-slate-500" />
               <h3 className="text-base font-semibold text-slate-800">音频与通话性能 (Audio & Call Quality)</h3>
@@ -3508,7 +3508,7 @@ export default function App() {
           </section>
 
           {/* 4. 物理特性与 ID 规格 */}
-          <section className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden mb-6">
+          <section className="card overflow-hidden mb-6">
             <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
               <Ruler className="w-4 h-4 text-slate-500" />
               <h3 className="text-base font-semibold text-slate-800">物理特性与细节 (Mechanical & ID Specs)</h3>
@@ -3564,7 +3564,7 @@ export default function App() {
           </section>
 
           {/* 基础参数（产品类型、芯片、电池、蓝牙、续航等） */}
-          <section className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden mb-6">
+          <section className="card overflow-hidden mb-6">
             <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
               <h3 className="text-base font-semibold text-slate-800">基础参数</h3>
             </div>
@@ -3674,7 +3674,7 @@ export default function App() {
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
               >
                 <ArrowLeft className="w-4 h-4" />
-                返回物料追踪
+                返回
               </button>
               <h2 className="text-lg font-semibold text-slate-800">样机分发登记清单</h2>
             </div>
@@ -3833,7 +3833,7 @@ export default function App() {
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
               >
                 <ArrowLeft className="w-4 h-4" />
-                返回物料追踪
+                返回
               </button>
               <h2 className="text-lg font-semibold text-slate-800">项目成员</h2>
             </div>
@@ -3866,12 +3866,12 @@ export default function App() {
               <h3 className="text-base font-semibold text-slate-700">客户项目团队成员</h3>
               <button
                 onClick={addCustomerMember}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                className="btn-secondary btn-sm"
               >
                 <Plus className="w-4 h-4" /> 增加行
               </button>
             </div>
-            <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+            <div className="card overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -3913,12 +3913,12 @@ export default function App() {
               <h3 className="text-base font-semibold text-slate-700">内部项目成员</h3>
               <button
                 onClick={addInternalMember}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                className="btn-secondary btn-sm"
               >
                 <Plus className="w-4 h-4" /> 增加行
               </button>
             </div>
-            <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+            <div className="card overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -3962,10 +3962,10 @@ export default function App() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowTechReserve(false)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                className="btn-secondary btn-sm"
               >
                 <ArrowLeft className="w-4 h-4" />
-                返回物料追踪
+                返回
               </button>
               <h2 className="text-base font-semibold text-slate-800">技术储备</h2>
             </div>
@@ -4197,7 +4197,7 @@ export default function App() {
                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
               >
                 <ArrowLeft className="w-4 h-4" />
-                返回物料追踪
+                返回
               </button>
               <h2 className="text-base font-semibold text-slate-800">项目问题点</h2>
             </div>
@@ -4321,7 +4321,7 @@ export default function App() {
                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
               >
                 <ArrowLeft className="w-4 h-4" />
-                返回物料追踪
+                返回
               </button>
               <h2 className="text-base font-semibold text-slate-800">试产问题点</h2>
             </div>
@@ -4458,7 +4458,7 @@ export default function App() {
                           <span className={`text-xs ${issue.priority === '高' ? 'text-red-600' : issue.priority === '中' ? 'text-amber-600' : 'text-slate-600'}`}>{issue.priority || '中'}</span>
                         </td>
                         <td className="py-2 align-top">
-                          <span className={`text-xs ${issue.status === '已解决' ? 'text-emerald-600' : issue.status === '处理中' ? 'text-blue-600' : 'text-slate-600'}`}>{issue.status || '待处理'}</span>
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${issue.status === '已解决' ? 'bg-emerald-50 text-emerald-700' : issue.status === '处理中' ? 'bg-blue-50 text-blue-700' : 'bg-surface-100 text-surface-600'}`}>{issue.status || '待处理'}</span>
                         </td>
                         <td className="py-2 align-top">
                           <span className="text-xs text-slate-600">{issue.closeTime || '-'}</span>
@@ -4662,7 +4662,7 @@ export default function App() {
                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
               >
                 <ArrowLeft className="w-4 h-4" />
-                返回物料追踪
+                返回
               </button>
               <h2 className="text-base font-semibold text-slate-800">文件资料 Checklist</h2>
             </div>
@@ -4672,14 +4672,14 @@ export default function App() {
                   const newId = `fcl_new_${Date.now()}`
                   setFileChecklist((prev) => [...prev, { id: newId, checklist: '', person: '', dueDate: '', status: 'open', docPath: '', docFile: null, comment: '' }])
                 }}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-blue-700"
+                className="btn-primary btn-sm"
               >
                 <Plus className="w-4 h-4" />
                 添加行
               </button>
               <button
                 onClick={exportFileChecklistExcel}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-blue-700"
+                className="btn-primary btn-sm"
               >
                 <Download className="w-4 h-4" />
                 导出 Excel
@@ -4701,7 +4701,7 @@ export default function App() {
           <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="bg-slate-700 text-white">
+                <tr className="table-header">
                   <th className="text-center py-2.5 px-2 font-medium text-xs w-10">No.</th>
                   <th className="text-left py-2.5 px-3 font-medium text-xs min-w-[280px]">Checklist</th>
                   <th className="text-left py-2.5 px-3 font-medium text-xs min-w-[120px]">负责人</th>
@@ -4759,7 +4759,7 @@ export default function App() {
                         <select
                           value={item.status}
                           onChange={(e) => setFileChecklist((prev) => prev.map((i) => i.id === item.id ? { ...i, status: e.target.value } : i))}
-                          className={`rounded border px-2 py-1 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 ${item.status === 'close' ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-amber-50 text-amber-700 border-amber-300'}`}
+                          className={`rounded-lg border px-2 py-1 text-xs font-medium transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500 ${item.status === 'close' ? 'badge-green' : 'badge-amber'}`}
                         >
                           <option value="open">open</option>
                           <option value="close">close</option>
@@ -4850,45 +4850,45 @@ export default function App() {
       ) : (
       <main className="max-w-7xl mx-auto px-6 py-6 space-y-6">
         {/* 全局概览卡片 */}
-        <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="card p-5 hover:shadow-elevated transition-shadow duration-200">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600">
+              <div className="p-3 rounded-xl bg-brand-50 text-brand-600">
                 <Package className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-medium">关键物料项数</p>
-                <p className="text-2xl font-bold text-slate-900">{stats.totalItems}</p>
+                <p className="text-xs font-medium text-surface-500 uppercase tracking-wide">关键物料项数</p>
+                <p className="text-2xl font-bold text-surface-900 mt-0.5">{stats.totalItems}</p>
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div className="card p-5 hover:shadow-elevated transition-shadow duration-200">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600">
+              <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600">
                 <TrendingUp className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-slate-500 font-medium">试产时间</p>
-                <p className="text-2xl font-bold text-slate-900">{trialProductionTime[filterPhase] || '-'}</p>
+                <p className="text-xs font-medium text-surface-500 uppercase tracking-wide">试产时间</p>
+                <p className="text-2xl font-bold text-surface-900 mt-0.5">{trialProductionTime[filterPhase] || '-'}</p>
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div className="card p-5 hover:shadow-elevated transition-shadow duration-200">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600">
+              <div className="p-3 rounded-xl bg-amber-50 text-amber-600">
                 <AlertTriangle className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-medium">风险物料数</p>
-                <p className="text-2xl font-bold text-slate-900">{stats.riskCount}</p>
+                <p className="text-xs font-medium text-surface-500 uppercase tracking-wide">风险物料数</p>
+                <p className="text-2xl font-bold text-surface-900 mt-0.5">{stats.riskCount}</p>
               </div>
             </div>
           </div>
         </section>
 
         {/* 筛选 + 阶段切换 + 添加按钮 */}
-        <section className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2 text-slate-600">
+        <section className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1.5 text-surface-500">
             <Filter className="w-4 h-4" />
             <span className="text-sm font-medium">筛选</span>
           </div>
@@ -4896,7 +4896,7 @@ export default function App() {
             <select
               value={filterVersion}
               onChange={(e) => setFilterVersion(e.target.value)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="select text-sm"
             >
               <option value="全部">使用版本：全部</option>
               {VERSIONS.map((v) => (
@@ -4904,25 +4904,25 @@ export default function App() {
               ))}
             </select>
           </div>
-          <span className="text-slate-400">|</span>
+          <span className="text-surface-300">|</span>
           <div className="flex items-center gap-1">
-            <span className="text-sm font-medium text-slate-600">阶段：</span>
+            <span className="text-sm font-medium text-surface-500">阶段：</span>
             {PHASES.map((p) => (
               <button
                 key={p}
                 type="button"
                 onClick={() => { setFilterPhase(p); setProductDemandPhase(p) }}
-                className={`rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1 ${
                   filterPhase === p
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
+                    ? 'bg-brand-600 text-white shadow-sm'
+                    : 'bg-white border border-surface-300 text-surface-600 hover:bg-surface-50 hover:border-surface-400'
                 }`}
               >
                 {p}
               </button>
             ))}
           </div>
-          <span className="text-slate-400">|</span>
+          <span className="text-surface-300">|</span>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium text-slate-600">试产时间：</span>
             <div className="flex items-center gap-1">
@@ -4987,7 +4987,7 @@ export default function App() {
           )}
           <button
             onClick={() => { setNewItem((prev) => ({ ...prev, phase: filterPhase })); setModalOpen(true) }}
-            className="ml-auto inline-flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="btn-primary"
           >
             <Plus className="w-4 h-4" />
             添加新物料
@@ -4995,8 +4995,8 @@ export default function App() {
         </section>
 
         {/* 物料追踪主表格 */}
-        <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+        <section className="card overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-surface-200 bg-surface-50 flex items-center justify-between">
             <div className="text-sm text-slate-600">
               当前阶段：<span className="font-semibold text-slate-900">{filterPhase}</span>
               {displayedKeyMaterialKeys.length > 0 && (
@@ -5007,7 +5007,7 @@ export default function App() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-700 text-white">
+                <tr className="table-header">
                   <th className="text-center py-2.5 px-1 font-medium w-8 text-xs">完成</th>
                   <th className="text-left py-2.5 px-3 font-medium text-xs">物料名称</th>
                   <th className="text-left py-2.5 px-3 font-medium text-xs">供应商</th>
@@ -5612,16 +5612,16 @@ export default function App() {
 
       {/* 添加新物料弹窗 */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setModalOpen(false)}>
+        <div className="modal-backdrop" onClick={() => setModalOpen(false)}>
           <div
-            className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4"
+            className="modal-content w-full max-w-md p-6 space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-800">添加新物料</h2>
+              <h2 className="text-lg font-semibold text-surface-800">添加新物料</h2>
               <button
                 onClick={() => setModalOpen(false)}
-                className="p-1 rounded hover:bg-slate-100 text-slate-500"
+                className="btn-ghost btn-sm !p-1.5"
               >
                 <X className="w-5 h-5" />
               </button>

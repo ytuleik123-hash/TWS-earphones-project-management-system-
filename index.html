@@ -4,10 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TWS 试产长周期物料追踪面板</title>
+    <meta name="description" content="NPI 试产阶段核心物料齐套进度追踪工具，面向项目经理" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <script>
       window.onerror = function(msg, url, line, col, err) {
         document.getElementById('root').innerHTML =
-          '<div style="padding:40px;font-family:sans-serif;color:#c00">' +
+          '<div style="padding:40px;font-family:Inter,sans-serif;color:#c00">' +
           '<h2>页面加载错误</h2>' +
           '<pre>' + msg + '</pre>' +
           '<pre>' + (err && err.stack ? err.stack : '') + '</pre>' +
@@ -17,8 +21,16 @@
       };
     </script>
   </head>
-  <body style="background-color: #f8fafc;">
-    <div id="root">加载中...</div>
+  <body>
+    <div id="root">
+      <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:Inter,sans-serif;color:#64748b;font-size:14px;">
+        <div style="text-align:center;">
+          <div style="width:32px;height:32px;border:3px solid #e2e8f0;border-top-color:#3b82f6;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px;"></div>
+          加载中...
+        </div>
+        <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

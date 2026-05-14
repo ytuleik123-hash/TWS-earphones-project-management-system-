@@ -1,19 +1,162 @@
+/* Google Fonts - must come before @tailwind */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  scroll-behavior: smooth;
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-surface-50 text-surface-900 font-sans;
+    margin: 0;
+  }
+
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+
+  input[type="checkbox"] {
+    @apply accent-brand-600;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-300 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-surface-400;
+  }
 }
 
-table {
-  font-variant-numeric: tabular-nums;
+@layer components {
+  .card {
+    @apply bg-white rounded-lg border border-surface-200 shadow-soft;
+  }
+  .card-hover {
+    @apply card transition-all duration-200 hover:shadow-card;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply btn bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500 active:bg-brand-800;
+  }
+  .btn-secondary {
+    @apply btn bg-white text-surface-700 border border-surface-300 hover:bg-surface-50 hover:border-surface-400 focus:ring-brand-500 active:bg-surface-100;
+  }
+  .btn-success {
+    @apply btn bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-500;
+  }
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-surface-600 hover:bg-surface-100 hover:text-surface-800 focus:ring-surface-400;
+  }
+  .btn-sm {
+    @apply px-2 py-1 text-xs;
+  }
+  .btn-lg {
+    @apply px-4 py-2 text-base;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-surface-300 px-3 py-2 text-sm text-surface-900 placeholder:text-surface-400 bg-white transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500;
+  }
+  .input-xs {
+    @apply input px-1.5 py-1 text-xs rounded;
+  }
+  .select {
+    @apply input appearance-none cursor-pointer;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .badge-green {
+    @apply badge bg-emerald-50 text-emerald-700 border border-emerald-200;
+  }
+  .badge-amber {
+    @apply badge bg-amber-50 text-amber-700 border border-amber-200;
+  }
+  .badge-red {
+    @apply badge bg-red-50 text-red-700 border border-red-200;
+  }
+  .badge-blue {
+    @apply badge bg-blue-50 text-blue-700 border border-blue-200;
+  }
+  .badge-slate {
+    @apply badge bg-surface-100 text-surface-600 border border-surface-200;
+  }
+
+  .table-header {
+    @apply bg-surface-800 text-white text-xs font-medium;
+  }
+  .table-header th {
+    @apply px-3 py-2.5 text-left;
+  }
+  .table-row {
+    @apply border-b border-surface-100 transition-colors duration-150;
+  }
+  .table-row-hover {
+    @apply table-row hover:bg-brand-50/40;
+  }
+  .table-cell {
+    @apply px-3 py-2 text-sm text-surface-700;
+  }
+
+  .modal-backdrop {
+    @apply fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4;
+    animation: fadeIn 150ms ease-out;
+  }
+  .modal-content {
+    @apply bg-white rounded-xl shadow-modal max-h-[90vh] overflow-y-auto;
+    animation: scaleIn 150ms ease-out;
+  }
+
+  .progress-bar {
+    @apply h-2 rounded-full bg-surface-200 overflow-hidden;
+  }
+  .progress-bar-fill {
+    @apply h-full rounded-full transition-all duration-500 ease-out;
+  }
+
+  .section-header {
+    @apply flex items-center justify-between mb-4;
+  }
+  .section-title {
+    @apply text-base font-semibold text-surface-800;
+  }
+
+  .nav-link {
+    @apply flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150;
+  }
+  .nav-link-active {
+    @apply nav-link bg-brand-50 text-brand-700;
+  }
+  .nav-link-inactive {
+    @apply nav-link text-surface-600 hover:bg-surface-100 hover:text-surface-800;
+  }
 }
 
-/* Checkbox styling */
-input[type="checkbox"] {
-  accent-color: #059669;
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
 }
