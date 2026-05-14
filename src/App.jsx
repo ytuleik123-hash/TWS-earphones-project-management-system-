@@ -1873,10 +1873,10 @@ export default function App() {
       if (!dept) return item
       const depts = dept.split('/').map(d => d.trim())
       for (const d of depts) {
-        const member = internalMembers.find(m => m.role?.trim() === d)
-        if (member?.name?.trim()) {
+        const members = internalMembers.filter(m => m.role?.trim() === d && m.name?.trim())
+        if (members.length > 0) {
           changed = true
-          return { ...item, person: member.name.trim() }
+          return { ...item, person: members.map(m => `${d}${m.name.trim()}`).join('、') }
         }
       }
       return item
@@ -4740,7 +4740,7 @@ export default function App() {
                             placeholder={getDeptHint(item.checklist) || "业务 | IE | PM | 采购 | CMF | ME | Compliance | SQE | TE | Package"}
                             title={getDeptHint(item.checklist) ? `建议部门: ${getDeptHint(item.checklist)}` : "业务 | IE | PM | 采购 | CMF | ME | Compliance | SQE | TE | Package"}
                           />
-                          {item.person && internalMembers.some(m => m.name?.trim() === item.person) && (
+                          {item.person && internalMembers.some(m => m.name?.trim() && (item.person === m.name.trim() || item.person.split('、').some(p => p.trim() === `${m.role?.trim()}${m.name.trim()}`))) && (
                             <span className="shrink-0 text-slate-400" title="已关联内部成员">
                               <Users className="w-3 h-3" />
                             </span>
