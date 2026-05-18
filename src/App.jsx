@@ -1449,6 +1449,7 @@ function getDefaultProjectState() {
     techReserve: getDefaultTechReserve(),
     productSpec: getDefaultProductSpec(),
     fileChecklist: DEFAULT_FILE_CHECKLIST.map(item => ({ ...item })),
+    longLeadMaterials: [],
   }
 }
 
@@ -1824,6 +1825,7 @@ export default function App() {
   const [showDistributionList, setShowDistributionList] = useState(false)
   const [distributionRecords, setDistributionRecords] = useState(() => [])
   const [distributionStageFilter, setDistributionStageFilter] = useState('EV')
+  const [longLeadMaterials, setLongLeadMaterials] = useState(() => [])
   const [distributionSaveHint, setDistributionSaveHint] = useState(false)
   const [showProjectPlan, setShowProjectPlan] = useState(false)
   const [showTechReserve, setShowTechReserve] = useState(false)
@@ -2105,6 +2107,8 @@ export default function App() {
     setFileChecklist(project.fileChecklist || DEFAULT_FILE_CHECKLIST.map(item => ({ ...item })))
     // 加载产前准备数据
     setPreProductionData(project.preProductionData || { EV: {}, DV1: {}, DV2: {}, PV: {} })
+    // 加载长周期物料数据
+    setLongLeadMaterials(project.longLeadMaterials || [])
     // 加载内部版本号
     setInternalVersion(project.internalVersion || '')
     setCurrentProjectId(project.id)
@@ -2151,6 +2155,7 @@ export default function App() {
       trialIssuesDeviceType,
       fileChecklist,
       preProductionData,
+      longLeadMaterials,
       internalVersion,
       currentProjectId,
       projects,
@@ -2298,6 +2303,12 @@ export default function App() {
     updateDistributionRecord(id, field, value)
   }
 
+  const getDefaultPM = () => {
+    const pms = internalMembers.filter(m => m.role?.trim() === 'PM' && m.name?.trim())
+    if (pms.length > 0) return pms.map(m => m.name.trim()).join('、')
+    return 'PM'
+  }
+
   const addDistributionRow = () => {
     setDistributionRecords((prev) => [
       ...prev,
@@ -2311,7 +2322,7 @@ export default function App() {
         color: '黑色',
         company: '天键',
         recipient: '',
-        personInCharge: 'PM',
+        personInCharge: getDefaultPM(),
         receiptTime: getTodayStr(),
         remark: '',
       },
@@ -2869,7 +2880,7 @@ export default function App() {
           requiredQty: '',
           leadTimeDays: '',
           demandConfirmDate: '',
-          eta: '',
+          eta: trialProductionTime[filterPhase] ? addDaysToYmd(trialProductionTime[filterPhase], -6) : '',
           releaseDate: '',
           materialReadyTime: '',
         },
@@ -2898,8 +2909,6 @@ export default function App() {
     const newLeadTimeDays = field === 'leadTimeDays' ? num : 0
     const newEta = field === 'eta' ? value : ''
     const releaseDate = newEta && newLeadTimeDays > 0 ? addDaysToYmd(newEta, -newLeadTimeDays) : ''
-    // 齐料时间默认等于开始交料日期
-    const materialReadyTime = newEta || ''
     setMaterials((prev) => [
       ...prev,
       {
@@ -2917,7 +2926,6 @@ export default function App() {
         demandConfirmDate: field === 'demandConfirmDate' ? value : '',
         eta: newEta,
         releaseDate,
-        materialReadyTime,
       },
     ])
   }
@@ -3209,7 +3217,7 @@ export default function App() {
       arrivalTime: '',
       requiredQty: 0,
       leadTimeDays: 0,
-      eta: new Date().toISOString().slice(0, 10),
+      eta: trialProductionTime[filterPhase] ? addDaysToYmd(trialProductionTime[filterPhase], -6) : '',
       releaseDate: '',
       materialReadyTime: '',
     })
@@ -5099,7 +5107,6 @@ export default function App() {
                   <th className="text-left py-2.5 px-2 font-medium text-xs">备料周期(天)</th>
                   <th className="text-left py-2.5 px-2 font-medium text-xs">放行日期</th>
                   <th className="text-left py-2.5 px-2 font-medium text-xs">开始交料</th>
-                  <th className="text-left py-2.5 px-2 font-medium text-xs">齐料时间</th>
                   <th className="text-left py-2.5 px-2 font-medium w-20 text-xs">备注</th>
                 </tr>
               </thead>
@@ -5238,32 +5245,17 @@ export default function App() {
                               const release = new Date(releaseDate)
                               newLeadTime = Math.round((etaDate - release) / 86400000)
                             }
-                            // 齐料时间默认等于开始交料日期
-                            const newMaterialReady = eta
-                            
+
                             if (isPlaceholder) {
                               ensureAndUpdateMaterial(key, filterPhase, 'eta', eta)
                               if (newLeadTime !== undefined) ensureAndUpdateMaterial(key, filterPhase, 'leadTimeDays', newLeadTime)
-                              ensureAndUpdateMaterial(key, filterPhase, 'materialReadyTime', newMaterialReady)
                             } else {
                               updateMaterial(row.id, 'eta', eta)
                               if (newLeadTime !== undefined) updateMaterial(row.id, 'leadTimeDays', newLeadTime)
-                              updateMaterial(row.id, 'materialReadyTime', newMaterialReady)
                             }
                           }}
                           className="w-28 rounded border border-slate-300 px-1.5 py-0.5 text-slate-600 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          title="输入开始交料日期自动计算备料周期，同时设置齐料时间"
-                        />
-                      </td>
-                      <td className="py-1.5 px-2">
-                        <input
-                          type="date"
-                          value={row.materialReadyTime ?? ''}
-                          onChange={(e) => {
-                            if (isPlaceholder) ensureAndUpdateMaterial(key, filterPhase, 'materialReadyTime', e.target.value)
-                            else updateMaterial(row.id, 'materialReadyTime', e.target.value)
-                          }}
-                          className="w-28 rounded border border-slate-300 px-1.5 py-0.5 text-slate-600 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          title="输入开始交料日期自动计算备料周期"
                         />
                       </td>
                       <td className="py-1.5 px-2">
@@ -5315,7 +5307,8 @@ export default function App() {
           )}
         </section>
 
-        {/* 产前准备模块 */}
+        {/* 产前准备模块（仅 EV 阶段显示） */}
+        {filterPhase === 'EV' && (
         <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -5452,6 +5445,128 @@ export default function App() {
             </div>
           </div>
         </section>
+        )}
+
+        {/* 长周期物料模块（DV1/DV2/PV 阶段显示） */}
+        {filterPhase !== 'EV' && (
+        <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-slate-800">长周期物料</h2>
+              <p className="text-sm text-slate-500 mt-0.5">物料名称 / 供应商 / 备料周期 / MOQ / MP放行时间</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setLongLeadMaterials((prev) => [...prev, { id: `llm_${Date.now()}`, name: '', supplier: '', trialLeadDays: '', mpLeadDays: '', moq: '' }])}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <Plus className="w-4 h-4" />
+                增加行
+              </button>
+            </div>
+          </div>
+          <div className="p-4">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200">
+                    <th className="text-left py-3 px-4 font-medium text-slate-600 min-w-[160px]">物料名称</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600 min-w-[120px]">供应商</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600 w-28">试产备料周期(天)</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600 w-28">MP备料周期(天)</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600 w-24">MOQ</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600 w-32">MP放行时间</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600 w-16"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {longLeadMaterials.map((item) => {
+                    const mpReleaseDate = (() => {
+                      if (!item.mpLeadDays) return ''
+                      // SOP time from project plan (milestone 'SOP (Start of Production)', column 'Actual plan')
+                      const sopCell = projectPlanCells['pm_10_pc_1']
+                      if (!sopCell) return ''
+                      const days = parseInt(item.mpLeadDays, 10)
+                      if (!days) return ''
+                      return addDaysToYmd(sopCell, -days)
+                    })()
+                    return (
+                      <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                        <td className="py-2 px-4">
+                          <input
+                            type="text"
+                            value={item.name}
+                            onChange={(e) => setLongLeadMaterials((prev) => prev.map((m) => m.id === item.id ? { ...m, name: e.target.value } : m))}
+                            className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            placeholder="物料名称"
+                          />
+                        </td>
+                        <td className="py-2 px-4">
+                          <input
+                            type="text"
+                            value={item.supplier || ''}
+                            onChange={(e) => setLongLeadMaterials((prev) => prev.map((m) => m.id === item.id ? { ...m, supplier: e.target.value } : m))}
+                            className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            placeholder="供应商"
+                          />
+                        </td>
+                        <td className="py-2 px-4">
+                          <input
+                            type="number"
+                            min={0}
+                            value={item.trialLeadDays ?? ''}
+                            onChange={(e) => setLongLeadMaterials((prev) => prev.map((m) => m.id === item.id ? { ...m, trialLeadDays: e.target.value } : m))}
+                            className="w-20 rounded border border-slate-300 px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          />
+                        </td>
+                        <td className="py-2 px-4">
+                          <input
+                            type="number"
+                            min={0}
+                            value={item.mpLeadDays ?? ''}
+                            onChange={(e) => setLongLeadMaterials((prev) => prev.map((m) => m.id === item.id ? { ...m, mpLeadDays: e.target.value } : m))}
+                            className="w-20 rounded border border-slate-300 px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          />
+                        </td>
+                        <td className="py-2 px-4">
+                          <input
+                            type="number"
+                            min={0}
+                            value={item.moq ?? ''}
+                            onChange={(e) => setLongLeadMaterials((prev) => prev.map((m) => m.id === item.id ? { ...m, moq: e.target.value } : m))}
+                            className="w-20 rounded border border-slate-300 px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          />
+                        </td>
+                        <td className="py-2 px-4">
+                          <span className="inline-block w-full rounded border border-transparent px-2 py-1 text-xs text-slate-700 font-medium">
+                            {mpReleaseDate || (item.mpLeadDays ? '（请先在里程碑计划中填写 SOP 时间）' : '-')}
+                          </span>
+                        </td>
+                        <td className="py-2 px-4">
+                          <button
+                            type="button"
+                            onClick={() => setLongLeadMaterials((prev) => prev.filter((m) => m.id !== item.id))}
+                            className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50"
+                            title="删除"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {longLeadMaterials.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-slate-400 text-sm">暂无长周期物料，点击「增加行」添加</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+        )}
 
         {/* 样机需求统计 */}
         <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -5797,15 +5912,6 @@ export default function App() {
                   type="date"
                   value={newItem.eta}
                   onChange={(e) => setNewItem((p) => ({ ...p, eta: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">齐料时间</label>
-                <input
-                  type="date"
-                  value={newItem.materialReadyTime || ''}
-                  onChange={(e) => setNewItem((p) => ({ ...p, materialReadyTime: e.target.value }))}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
