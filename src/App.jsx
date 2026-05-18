@@ -1704,6 +1704,72 @@ function getEtaRowBg(item) {
   return ''
 }
 
+// ---------- Combobox：支持下拉选型+自行输入的组合框 ----------
+function Combobox({ value, options, onChange, className, placeholder }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState(value || '');
+  const ref = useRef(null);
+
+  useEffect(() => { setText(value || ''); }, [value]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const handleInputChange = (e) => {
+    const v = e.target.value;
+    setText(v);
+    onChange(v);
+  };
+
+  const handleOptionClick = (opt) => {
+    setText(opt);
+    onChange(opt);
+    setOpen(false);
+  };
+
+  return (
+    <div className="relative inline-block" ref={ref}>
+      <div className="flex">
+        <input
+          type="text"
+          value={text}
+          onChange={handleInputChange}
+          onFocus={() => setOpen(true)}
+          placeholder={placeholder}
+          className={'rounded-r-none ' + (className || 'w-24 rounded border border-slate-300 px-2 py-1 text-sm')}
+        />
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="px-1.5 border border-l-0 border-slate-300 rounded-r bg-white hover:bg-slate-100 text-slate-500 text-[10px] leading-none"
+          tabIndex={-1}
+        >
+          ▼
+        </button>
+      </div>
+      {open && (
+        <div className="absolute z-50 top-full left-0 mt-0.5 bg-white border border-slate-200 rounded shadow-elevated max-h-48 overflow-y-auto min-w-[120px]">
+          {options.map((opt) => (
+            <div
+              key={opt}
+              className={`px-2.5 py-1.5 text-sm cursor-pointer hover:bg-brand-50 whitespace-nowrap ${
+                opt === text ? 'bg-brand-50 text-brand-700' : 'text-slate-700'
+              }`}
+              onMouseDown={(e) => { e.preventDefault(); handleOptionClick(opt); }}
+            >
+              {opt}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---------- 主应用 ----------
 export default function App() {
   const [projects, setProjects] = useState(() => loadProjects())
@@ -2214,6 +2280,24 @@ export default function App() {
     setView('editor')
   }
 
+  const getTodayStr = () => new Date().toISOString().slice(0, 10)
+
+  const KNOWN_ROLES = ['EE', 'ME', 'AE', 'SW', 'DQE', 'Compliance', 'PM']
+
+  const handlePersonRoleSelect = (id, field, value) => {
+    const trimmed = value.trim()
+    // Only auto-fill when value exactly matches a known role name
+    if (KNOWN_ROLES.includes(trimmed)) {
+      const members = internalMembers.filter(m => m.role?.trim() === trimmed && m.name?.trim())
+      if (members.length > 0) {
+        const filledName = members.map(m => `${m.name.trim()}`).join('、')
+        updateDistributionRecord(id, field, filledName)
+        return
+      }
+    }
+    updateDistributionRecord(id, field, value)
+  }
+
   const addDistributionRow = () => {
     setDistributionRecords((prev) => [
       ...prev,
@@ -2223,12 +2307,12 @@ export default function App() {
         earphoneSet: '',
         charging: '',
         pcba: '',
-        structureHand: '',
-        color: '',
-        company: '',
+        structureHand: '通用',
+        color: '黑色',
+        company: '天键',
         recipient: '',
-        personInCharge: '',
-        receiptTime: '',
+        personInCharge: 'PM',
+        receiptTime: getTodayStr(),
         remark: '',
       },
     ])
@@ -2554,7 +2638,7 @@ export default function App() {
   }
 
   const exportDistributionExcel = () => {
-    const headers = ['样品阶段', '耳机(套)', '充电盒', 'PCBA', '耳机结构手板', '颜色', '公司', '领用人', '负责人', '领用时间', '备注']
+    const headers = ['样品阶段', '耳机(套)', '充电盒', 'PCBA', '版本', '颜色', '公司', '领用人', '负责人', '领用时间', '备注']
     const rows = [headers]
     distributionRecords.forEach((r) => {
       rows.push([r.stage || '', r.earphoneSet || '', r.charging || '', r.pcba || '', r.structureHand || '', r.color || '', r.company || '', r.recipient || '', r.personInCharge || '', r.receiptTime || '', r.remark || ''])
@@ -3733,7 +3817,7 @@ export default function App() {
                     <th className="text-left py-3 px-3 font-medium">耳机(套)</th>
                     <th className="text-left py-3 px-3 font-medium">充电盒</th>
                     <th className="text-left py-3 px-3 font-medium">PCBA</th>
-                    <th className="text-left py-3 px-3 font-medium">耳机结构手板</th>
+                    <th className="text-left py-3 px-3 font-medium">版本</th>
                     <th className="text-left py-3 px-3 font-medium">颜色</th>
                     <th className="text-left py-3 px-3 font-medium">公司</th>
                     <th className="text-left py-3 px-3 font-medium">领用人</th>
@@ -3755,19 +3839,19 @@ export default function App() {
                         <input type="text" value={row.pcba || ''} onChange={(e) => updateDistributionRecord(row.id, 'pcba', e.target.value)} className="w-20 rounded border border-slate-300 px-2 py-1" />
                       </td>
                       <td className="py-2 px-3">
-                        <input type="text" value={row.structureHand || ''} onChange={(e) => updateDistributionRecord(row.id, 'structureHand', e.target.value)} className="w-24 rounded border border-slate-300 px-2 py-1" />
+                        <Combobox value={row.structureHand || ''} options={['可拆', '不可拆', '通用']} onChange={(v) => updateDistributionRecord(row.id, 'structureHand', v)} className="w-24 text-sm" placeholder="版本" />
                       </td>
                       <td className="py-2 px-3">
-                        <input type="text" value={row.color || ''} onChange={(e) => updateDistributionRecord(row.id, 'color', e.target.value)} className="w-20 rounded border border-slate-300 px-2 py-1" placeholder="颜色" />
+                        <Combobox value={row.color || ''} options={['黑色', '多色']} onChange={(v) => updateDistributionRecord(row.id, 'color', v)} className="w-20 text-sm" placeholder="颜色" />
                       </td>
                       <td className="py-2 px-3">
-                        <input type="text" value={row.company || ''} onChange={(e) => updateDistributionRecord(row.id, 'company', e.target.value)} className="w-28 rounded border border-slate-300 px-2 py-1" placeholder="公司" />
+                        <Combobox value={row.company || ''} options={['IDH', '哈曼', '天键', '天线厂', 'BES', '其他']} onChange={(v) => updateDistributionRecord(row.id, 'company', v)} className="w-28 text-sm" placeholder="公司" />
                       </td>
                       <td className="py-2 px-3">
-                        <input type="text" value={row.recipient || ''} onChange={(e) => updateDistributionRecord(row.id, 'recipient', e.target.value)} className="w-24 rounded border border-slate-300 px-2 py-1" placeholder="领用人" />
+                        <Combobox value={row.recipient || ''} options={['EE', 'ME', 'AE', 'SW', 'DQE', 'Compliance', 'PM']} onChange={(v) => handlePersonRoleSelect(row.id, 'recipient', v)} className="w-28 text-sm" placeholder="领用人" />
                       </td>
                       <td className="py-2 px-3">
-                        <input type="text" value={row.personInCharge || ''} onChange={(e) => updateDistributionRecord(row.id, 'personInCharge', e.target.value)} className="w-24 rounded border border-slate-300 px-2 py-1" placeholder="负责人" />
+                        <Combobox value={row.personInCharge || ''} options={['EE', 'ME', 'AE', 'SW', 'DQE', 'Compliance', 'PM']} onChange={(v) => handlePersonRoleSelect(row.id, 'personInCharge', v)} className="w-28 text-sm" placeholder="负责人" />
                       </td>
                       <td className="py-2 px-3">
                         <input type="date" value={row.receiptTime || ''} onChange={(e) => updateDistributionRecord(row.id, 'receiptTime', e.target.value)} className="w-32 rounded border border-slate-300 px-2 py-1" />
