@@ -1,6 +1,6 @@
 import { useState, useMemo, Fragment, useRef, useEffect } from 'react'
 import * as XLSX from 'xlsx'
-import CONFIG from './config.js'
+
 
 // ========== 自定义 Hook：用于延迟保存的输入 ==========
 function useDeferredInput(initialValue, onSave, delay = 0) {
@@ -2976,11 +2976,11 @@ export default function App() {
       }
 
       // 调用 DeepSeek API
-      const response = await fetch(CONFIG.DEEPSEEK_API_URL, {
+      const response = await fetch(import.meta.env.VITE_DEEPSEEK_API_URL || 'https://api.deepseek.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + CONFIG.DEEPSEEK_API_KEY
+          'Authorization': 'Bearer ' + import.meta.env.VITE_DEEPSEEK_API_KEY
         },
         signal: controller.signal,
         body: JSON.stringify({
