@@ -1,5 +1,6 @@
 import { useState, useMemo, Fragment, useRef, useEffect } from 'react'
 import * as XLSX from 'xlsx'
+import CONFIG from './config.js'
 
 // ========== 自定义 Hook：用于延迟保存的输入 ==========
 function useDeferredInput(initialValue, onSave, delay = 0) {
@@ -48,6 +49,7 @@ import {
   ArrowLeft,
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   ClipboardList,
   Calendar,
@@ -62,6 +64,25 @@ import {
   Headphones,
   Ruler,
   ExternalLink,
+  Clock,
+  Cloud,
+  CloudFog,
+  CloudLightning,
+  CloudRain,
+  CloudSnow,
+  Sun,
+  Play,
+  Pause,
+  RotateCcw,
+  CheckCircle2,
+  Circle,
+  List,
+  Settings,
+  MessageCircle,
+  Sparkles,
+  Home,
+  FileText,
+  BookmarkPlus,
 } from 'lucide-react'
 
 
@@ -1369,6 +1390,178 @@ function getDefaultTechReserve() {
   return TECH_MODULES.reduce((acc, m) => ({ ...acc, [m]: [] }), {})
 }
 
+// 自动分类问题到技术模块（关键词匹配）
+function autoClassifyModule(question) {
+  const q = question.toLowerCase()
+  const rules = [
+    { module: '声学', keywords: ['底噪', '降噪', 'anc', '喇叭', '单元', '频响', '失真', 'thd', '调音', 'eq', '音质', '听感', '麦克风', '声学', '防水', 'ipx', '回声', '啸叫'] },
+    { module: '结构', keywords: ['结构', '堆叠', '公差', '装配', '壳体', '间隙', '3d', 'proe', 'creo', '卡扣', '密封'] },
+    { module: '电子', keywords: ['电子', '电路', 'pcb', '充电', '电池', '电源', '传感器', '蓝牙', 'rf', '射频', '天线', '芯片', '功耗'] },
+    { module: '软件', keywords: ['软件', '固件', 'firmware', '算法', 'dsp', '协议', '升级', 'ota', '调试'] },
+    { module: '模具', keywords: ['模具', '注塑', '试模', 't0', 't1', '缩水', '飞边', '浇口', '滑块'] },
+    { module: '业务', keywords: ['npi', '项目', '流程', '客户', 'gate', '试产', 'ramp', 'milestone', '里程碑', 'schedule'] },
+  ]
+  for (const rule of rules) {
+    if (rule.keywords.some(kw => q.includes(kw))) return rule.module
+  }
+  return TECH_MODULES[0]
+}
+
+// 从问题中提取关键词作为术语名
+function extractTerm(question) {
+  const q = question.trim()
+  const cleaned = q.replace(/^(什么是|什么是|怎么|如何|为什么|能不能|怎样|可否|是否|有没有|哪些|哪里)\s*/i, '')
+    .replace(/[？?]$/, '')
+    .replace(/\s+(是什么|是什么意思|怎么做|怎么解决|如何解决|有哪些|怎么办|怎么处理)$/, '')
+  return cleaned || q
+}
+
+// AI 知识问答：内置耳机行业知识库（按关键词匹配）
+
+// 搜索技术储备数据
+function searchTechReserve(question, techReserve) {
+  const q = question.toLowerCase().trim()
+  if (!q) return []
+
+  const results = []
+  TECH_MODULES.forEach((mod) => {
+    ;(techReserve[mod] || []).forEach((entry) => {
+      const text = String(entry.term || '') + ' ' + String(entry.summary || '') + ' ' + String(entry.tags || '') + ' ' + String(entry.details || '') + ' ' + String(entry.notes || '')
+      if (text.toLowerCase().includes(q)) {
+        results.push({ module: mod, entry })
+      }
+    })
+  })
+  return results
+}
+
+// 简易 Markdown 渲染（支持 **bold**、- 列表、表格、换行）
+function renderAiAnswer(text) {
+  if (!text) return null
+  const lines = text.split('\n')
+  const paragraphs = []
+  let currentList = null
+
+  const flushList = () => {
+    if (currentList) {
+      paragraphs.push(<ul key={paragraphs.length} className="list-disc pl-5 my-1 space-y-0.5">{currentList}</ul>)
+      currentList = null
+    }
+  }
+
+  const renderInline = (t) => {
+    const parts = t.split(/(\*\*.*?\*\*)/g)
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={i} className="font-semibold text-slate-800">{part.slice(2, -2)}</strong>
+      }
+      return part
+    })
+  }
+
+  const renderTable = (headerLine) => {
+    // Simple pipe table: | a | b | c |
+    const cells = headerLine.split('|').filter(c => c.trim()).map(c => c.trim())
+    if (cells.length < 2) return null
+    return (
+      <div key={paragraphs.length} className="overflow-x-auto my-2">
+        <table className="w-full text-xs border-collapse">
+          <thead>
+            <tr className="bg-slate-100">
+              {cells.map((c, i) => <th key={i} className="border border-slate-300 px-2 py-1 text-left font-medium text-slate-700">{c}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {renderTableRows()}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+
+  // Simple state for table rows
+  let tableMode = false
+  let tableHeaders = null
+  let tableRows = []
+
+  const renderTableRows = () => tableRows.map((row, ri) => (
+    <tr key={ri} className="even:bg-slate-50">
+      {row.split('|').filter(c => c.trim()).map((c, ci) => (
+        <td key={ci} className="border border-slate-300 px-2 py-1 text-slate-600">{c.trim()}</td>
+      ))}
+    </tr>
+  ))
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const trimmed = line.trim()
+
+    // Skip separator lines like |---|
+    if (/^\|[\s\-:]+\|$/.test(trimmed)) continue
+
+    // Table row
+    if (trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.split('|').filter(c => c.trim()).length >= 2) {
+      if (!tableHeaders) {
+        tableHeaders = trimmed
+        continue
+      }
+      tableRows.push(trimmed)
+      continue
+    }
+
+    // Flush table if we were building one
+    if (tableHeaders) {
+      flushList()
+      paragraphs.push(renderTable(tableHeaders))
+      tableHeaders = null
+      tableRows = []
+      if (trimmed.startsWith('|')) {
+        tableHeaders = trimmed
+        continue
+      }
+    }
+
+    if (trimmed === '') {
+      flushList()
+      continue
+    }
+
+    if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
+      if (!currentList) currentList = []
+      currentList.push(<li key={currentList.length} className="text-slate-700">{renderInline(trimmed.replace(/^[-•]\s*/, ''))}</li>)
+      continue
+    }
+
+    flushList()
+
+    // Numbered list item
+    const numMatch = trimmed.match(/^\d+\.\s+(.+)/)
+    if (numMatch) {
+      paragraphs.push(
+        <div key={paragraphs.length} className="flex gap-2 text-sm text-slate-700">
+          <span className="font-medium text-slate-500 shrink-0">{trimmed.match(/^\d+\./)[0]}</span>
+          <span>{renderInline(numMatch[1])}</span>
+        </div>
+      )
+      continue
+    }
+
+    paragraphs.push(<p key={paragraphs.length} className="text-sm text-slate-700 mb-1">{renderInline(trimmed)}</p>)
+  }
+
+  flushList()
+
+  // Flush any remaining table
+  if (tableHeaders) {
+    paragraphs.push(renderTable(tableHeaders))
+  }
+
+  return paragraphs
+}
+
+
+// Workbook 问题记录分类}
+
 // Workbook 问题记录分类
 const WORKBOOK_CATEGORIES = ['Schedule', 'ID/ME', 'Acoustic/Call Quality', 'EE', 'SW', 'Compliance']
 
@@ -1450,6 +1643,8 @@ function getDefaultProjectState() {
     productSpec: getDefaultProductSpec(),
     fileChecklist: DEFAULT_FILE_CHECKLIST.map(item => ({ ...item })),
     longLeadMaterials: [],
+    scheduleData: {},
+    notesData: [],
   }
 }
 
@@ -1548,6 +1743,15 @@ function formatDisplayDate(dateStr, format) {
   }
 }
 
+
+// ===== 周数计算 =====
+function getISOWeekNumber(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  const week1 = new Date(d.getFullYear(), 0, 4);
+  return 1 + Math.round(((d - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+}
 
 const DEFAULT_FILE_CHECKLIST = [
   "Production process flow chart","Production line layout","PFMEA","CP","Jig/fixture list with release report","Equipment/test system list with release report","Production WI","Production line balance","Ramp up plan","Productivity plan","In line quality plan","Production process issue tracker","Detectability Assessment","Parts capacity (after all post processes) matches DA 模具产能（包括后处理的产能）","1st tooling released and MES aligned （CPK/FAI;Gap&step提供给客户放行模具，需收到客户放行的邮件）","Packing structure design released（找客户放行邮件或者签板）","Parts golden sample signed off (including color / PV packaging etc.) – Open/Done","Hardware release – Open/Done","Software release – Open/Done","Compliance test result pass","Part and Gates samples approved（签样情况）-中限， 相当于COLOR APPROVAL TRACKING STATUS","Tooling Status（实际与DA产能对比）","Tooling list","Gap & Step 30#","DA Files","LLT Material status（LLT List&LLT Tracking）","LLT BOM and authorization release – Open/Done & Document","ODM PO released for LLT parts and availability mapped – Open/Done & Document","Issue Tracker","MES file","CMF file","Compliance file","EES file","AES file","SRD file","UIS file","PRD file","PES file"
@@ -1818,6 +2022,7 @@ export default function App() {
   const [editingColorValue, setEditingColorValue] = useState('')
   const [filterVersion, setFilterVersion] = useState('全部')
   const [filterPhase, setFilterPhase] = useState('DV1')
+  const [showWarningBanner, setShowWarningBanner] = useState(true)
   const [phaseStartDates, setPhaseStartDates] = useState(() => ({ DV1: '', DV2: '', PV: '' }))
   const [phaseStartRanges, setPhaseStartRanges] = useState(() => getDefaultPhaseStartRanges())
   const [phaseStartRangesExpanded, setPhaseStartRangesExpanded] = useState(false)
@@ -1827,6 +2032,41 @@ export default function App() {
   const [distributionStageFilter, setDistributionStageFilter] = useState('EV')
   const [longLeadMaterials, setLongLeadMaterials] = useState(() => [])
   const [distributionSaveHint, setDistributionSaveHint] = useState(false)
+
+  // 右下角浮动面板：每日待办 + 番茄钟
+  const [widgetOpen, setWidgetOpen] = useState(false)
+  const [widgetTab, setWidgetTab] = useState('todo')
+  const widgetRef = useRef(null)
+  const [dailyTodoData, setDailyTodoData] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('dailyTodos') || '{}') } catch { return {} }
+  })
+  const [pomodoroSettings, setPomodoroSettings] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('pomodoroSettings') || '{"work":25,"break":5}') } catch { return { work: 25, break: 5 } }
+  })
+  const [pomodoroPhase, setPomodoroPhase] = useState('work')
+  const [pomodoroSeconds, setPomodoroSeconds] = useState(25 * 60)
+  const [pomodoroRunning, setPomodoroRunning] = useState(false)
+  const pomodoroPhaseRef = useRef(pomodoroPhase)
+  const pomodoroSettingsRef = useRef(pomodoroSettings)
+  pomodoroPhaseRef.current = pomodoroPhase
+  pomodoroSettingsRef.current = pomodoroSettings
+  // ===== 时间/天气/日历 =====
+  const [currentTime, setCurrentTime] = useState(new Date())
+  const [weatherText, setWeatherText] = useState('--')
+  const [weatherTemp, setWeatherTemp] = useState('--')
+  const [showCalendar, setShowCalendar] = useState(false)
+  const [calYear, setCalYear] = useState(new Date().getFullYear())
+  const [calMonth, setCalMonth] = useState(new Date().getMonth())
+  const [selectedDate, setSelectedDate] = useState('')
+  const [scheduleData, setScheduleData] = useState({})
+  const [newSchTime, setNewSchTime] = useState('')
+  const [newSchDesc, setNewSchDesc] = useState('')
+  const [editSchId, setEditSchId] = useState(null)
+  const [editSchTime, setEditSchTime] = useState('')
+  const [editSchDesc, setEditSchDesc] = useState('')
+  const [holidayData, setHolidayData] = useState({})
+  const [dailyQuote, setDailyQuote] = useState({ content: '', note: '' })
+
   const [showProjectPlan, setShowProjectPlan] = useState(false)
   const [showTechReserve, setShowTechReserve] = useState(false)
   const [projectPlanMilestones, setProjectPlanMilestones] = useState(() =>
@@ -1869,6 +2109,10 @@ export default function App() {
   const [techActiveModule, setTechActiveModule] = useState(TECH_MODULES[0])
   const [techActiveId, setTechActiveId] = useState(null)
   const [techSearch, setTechSearch] = useState('')
+  const [aiQuestion, setAiQuestion] = useState('')
+  const [aiAnswer, setAiAnswer] = useState(null) // { text, source } | null
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiImportHint, setAiImportHint] = useState(null) // 导入技术储备提示，内容为模块名或null
   const [remarkModalMaterialId, setRemarkModalMaterialId] = useState(null)
   const [remarkModalKey, setRemarkModalKey] = useState(null)
   const [remarkModalPhase, setRemarkModalPhase] = useState(null)
@@ -1930,6 +2174,13 @@ export default function App() {
   const [fileLibrarySaveHint, setFileLibrarySaveHint] = useState(false)
   const [showInternalVersionModal, setShowInternalVersionModal] = useState(false)
   const [internalVersionValue, setInternalVersionValue] = useState('')
+
+  // 项目笔记状态
+  const [showNotes, setShowNotes] = useState(false)
+  const [notesData, setNotesData] = useState([])
+  const [notesActiveId, setNotesActiveId] = useState(null)
+  const [notesSearch, setNotesSearch] = useState('')
+  const [notesSaveHint, setNotesSaveHint] = useState(false)
 
   // 文件资料负责人自动匹配内部成员：dept hint → internalMembers role
   useEffect(() => {
@@ -2006,6 +2257,8 @@ export default function App() {
     setFileChecklist(DEFAULT_FILE_CHECKLIST.map(item => ({ ...item })))
     // 重置产前准备
     setPreProductionData({ EV: {}, DV1: {}, DV2: {}, PV: {} })
+    setScheduleData({})
+    setNotesData([])
       return
     }
     setProjectName(project.projectName || project.name || '未命名项目')
@@ -2109,6 +2362,10 @@ export default function App() {
     setPreProductionData(project.preProductionData || { EV: {}, DV1: {}, DV2: {}, PV: {} })
     // 加载长周期物料数据
     setLongLeadMaterials(project.longLeadMaterials || [])
+    // 加载日程数据
+    setScheduleData(project.scheduleData || {})
+    // 加载项目笔记数据
+    setNotesData(project.notesData || [])
     // 加载内部版本号
     setInternalVersion(project.internalVersion || '')
     setCurrentProjectId(project.id)
@@ -2156,6 +2413,8 @@ export default function App() {
       fileChecklist,
       preProductionData,
       longLeadMaterials,
+      scheduleData,
+      notesData,
       internalVersion,
       currentProjectId,
       projects,
@@ -2193,6 +2452,8 @@ export default function App() {
         trialIssuesDeviceType: capture.trialIssuesDeviceType,
         fileChecklist: capture.fileChecklist,
         preProductionData: capture.preProductionData,
+        scheduleData: capture.scheduleData,
+        notesData: capture.notesData,
       }
       const id = capture.currentProjectId || `p_${Date.now()}`
       const name = (capture.projectName || '').trim() || '未命名项目'
@@ -2342,6 +2603,199 @@ export default function App() {
   const filteredDistributionRecords = useMemo(() => {
     return distributionRecords.filter((r) => r.stage === distributionStageFilter)
   }, [distributionRecords, distributionStageFilter])
+
+  // ===== 浮动待办+番茄钟 逻辑 =====
+  const playBeep = () => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)()
+      const osc = ctx.createOscillator()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(800, ctx.currentTime)
+      osc.connect(ctx.destination)
+      osc.start()
+      osc.stop(ctx.currentTime + 0.15)
+      const osc2 = ctx.createOscillator()
+      osc2.type = 'sine'
+      osc2.frequency.setValueAtTime(1000, ctx.currentTime + 0.15)
+      osc2.connect(ctx.destination)
+      osc2.start(ctx.currentTime + 0.15)
+      osc2.stop(ctx.currentTime + 0.3)
+    } catch (e) {}
+  }
+
+  // 番茄钟倒计时
+  useEffect(() => {
+    if (!pomodoroRunning) return
+    const interval = setInterval(() => {
+      setPomodoroSeconds((prev) => {
+        if (prev <= 1) {
+          playBeep()
+          const phase = pomodoroPhaseRef.current
+          const settings = pomodoroSettingsRef.current
+          if (phase === 'work') {
+            setPomodoroPhase('break')
+            return settings.break * 60
+          } else {
+            setPomodoroPhase('work')
+            return settings.work * 60
+          }
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [pomodoroRunning])
+
+  // ----- 时钟每秒更新 -----
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, [])
+
+  // ----- 自动获取天气 -----
+  useEffect(() => {
+    let cancelled = false;
+    const fetchWeather = async () => {
+      try {
+        const res = await fetch('https://wttr.in/Shenzhen?format=%C+%t&lang=zh');
+        if (cancelled || !res.ok) throw new Error('fail');
+        const text = await res.text();
+        if (cancelled) return;
+        const tempMatch = text.match(/([+-]\d+°C)$/);
+        if (tempMatch) {
+          setWeatherText(text.slice(0, tempMatch.index).trim());
+          setWeatherTemp(tempMatch[1]);
+        } else {
+          setWeatherText(text.trim());
+          setWeatherTemp('--');
+        }
+      } catch {
+        if (!cancelled) { setWeatherText('--'); setWeatherTemp('--'); }
+      }
+    };
+    fetchWeather();
+    return () => { cancelled = true; };
+  }, [])
+
+  // ----- 获取国内假期数据 -----
+  useEffect(() => {
+    let cancelled = false;
+    const fetchHolidays = async () => {
+      try {
+        const year = new Date().getFullYear();
+        const res = await fetch('https://timor.tech/api/holiday/year/' + year);
+        if (cancelled || !res.ok) throw new Error('fail');
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.code === 0) setHolidayData(data.holiday || {});
+      } catch {
+        if (!cancelled) console.warn('假期数据获取失败');
+      }
+    };
+    fetchHolidays();
+    return () => { cancelled = true; };
+  }, [])
+
+  // ----- 获取每日名言 -----
+  useEffect(() => {
+    let cancelled = false;
+    const FALLBACK_QUOTES = [
+      { content: "The best way to predict the future is to create it.", note: "预测未来的最好方式就是创造未来。" },
+      { content: "Success is not final, failure is not fatal: it is the courage to continue that counts.", note: "成功不是终点，失败也非末日，最重要的是继续前进的勇气。" },
+      { content: "In the middle of difficulty lies opportunity.", note: "困难之中蕴藏着机会。" },
+      { content: "The only way to do great work is to love what you do.", note: "成就伟业的唯一途径是热爱你所做的事。" },
+      { content: "Life is what happens when you're busy making other plans.", note: "生活就是在你忙于其他计划时发生的事情。" },
+      { content: "The journey of a thousand miles begins with a single step.", note: "千里之行，始于足下。" },
+      { content: "Be the change that you wish to see in the world.", note: "欲变世界，先变其身。" },
+      { content: "It does not matter how slowly you go as long as you do not stop.", note: "只要不停下，慢一点没关系。" },
+      { content: "The only limit to our realization of tomorrow will be our doubts of today.", note: "实现明天理想的唯一障碍是今天的疑虑。" },
+      { content: "做事先做人，做人先修心。", note: "Conduct yourself before undertaking tasks; cultivate your heart before conducting yourself." },
+      { content: "不积跬步，无以至千里；不积小流，无以成江海。", note: "A thousand-mile journey is not paved without every single step." },
+      { content: "天行健，君子以自强不息。", note: "As heaven's movement is vigorous, so a gentleman strives to constantly strengthen himself." },
+    ];
+    const fetchQuote = async () => {
+      try {
+        const res = await fetch('https://open.iciba.com/huaci/');
+        if (cancelled || !res.ok) throw new Error('fail');
+        const data = await res.json();
+        if (cancelled) return;
+        if (data && data.content) {
+          setDailyQuote({ content: data.content, note: data.note || '' });
+          return;
+        }
+        throw new Error('invalid');
+      } catch {
+        if (!cancelled) {
+          const idx = new Date().getDate() % FALLBACK_QUOTES.length;
+          setDailyQuote(FALLBACK_QUOTES[idx]);
+        }
+      }
+    };
+    fetchQuote();
+    return () => { cancelled = true; };
+  }, [])
+
+  // 点击外部关闭面板
+  useEffect(() => {
+    if (!widgetOpen) return
+    const handler = (e) => {
+      if (widgetRef.current && !widgetRef.current.contains(e.target)) setWidgetOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [widgetOpen])
+
+  // 待办持久化
+  useEffect(() => { localStorage.setItem('dailyTodos', JSON.stringify(dailyTodoData)) }, [dailyTodoData])
+  // 番茄钟设置持久化
+  useEffect(() => { localStorage.setItem('pomodoroSettings', JSON.stringify(pomodoroSettings)) }, [pomodoroSettings])
+
+  const getTodayKey = () => new Date().toISOString().slice(0, 10)
+  const getTodayTodos = () => dailyTodoData[getTodayKey()] || []
+
+  const addTodo = (text) => {
+    const today = getTodayKey()
+    const newTodo = { id: Date.now(), text: text.trim(), done: false }
+    setDailyTodoData((prev) => ({ ...prev, [today]: [...(prev[today] || []), newTodo] }))
+  }
+
+  const toggleTodo = (id) => {
+    const today = getTodayKey()
+    setDailyTodoData((prev) => ({
+      ...prev,
+      [today]: (prev[today] || []).map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
+    }))
+  }
+
+  const deleteTodo = (id) => {
+    const today = getTodayKey()
+    setDailyTodoData((prev) => ({
+      ...prev,
+      [today]: (prev[today] || []).filter((t) => t.id !== id),
+    }))
+  }
+
+
+  const addSchedule = (date, time, desc) => {
+    setScheduleData(prev => ({ ...prev, [date]: [...(prev[date] || []), { id: 's_' + Date.now(), time, desc }] }));
+    setNewSchTime('');
+    setNewSchDesc('');
+  }
+  const resetPomodoro = () => {
+    setPomodoroRunning(false)
+    setPomodoroPhase('work')
+    setPomodoroSeconds(pomodoroSettings.work * 60)
+  }
+
+  const togglePomodoro = () => {
+    if (pomodoroRunning) {
+      setPomodoroRunning(false)
+    } else {
+      if (pomodoroSeconds <= 0) resetPomodoro()
+      setPomodoroRunning(true)
+    }
+  }
+  // ===== 浮动待办+番茄钟 结束 =====
 
   const addProjectPlanColumn = () => {
     setProjectPlanColumns((prev) => [...prev, { id: `pc_${Date.now()}`, name: '新列' }])
@@ -2498,6 +2952,70 @@ export default function App() {
       [module]: (prev[module] || []).filter((e) => e.id !== id),
     }))
     setTechActiveId(null)
+  }
+
+  const handleAiAsk = async (forcedQuestion) => {
+    const q = (forcedQuestion || aiQuestion).trim()
+    if (!q) return
+    setAiLoading(true)
+    setAiAnswer(null)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000)
+
+    try {
+      // 先搜索技术储备库（用户自己的数据，0 token 成本）
+      const reserveResults = searchTechReserve(q, techReserve)
+      if (reserveResults.length > 0) {
+        const best = reserveResults[0]
+        const text = '**' + (best.entry.term || '相关条目') + '**（来自"' + best.module + '"模块）\n\n'
+          + (best.entry.summary ? '**一句话解释：**' + best.entry.summary + '\n\n' : '')
+          + (best.entry.details ? '**详细说明：**\n' + best.entry.details.replace(/<[^>]*>/g, '') + '\n\n' : '')
+          + (best.entry.notes ? '**经验要点：**\n' + best.entry.notes : '')
+        setAiAnswer({ text, source: 'reserve' })
+        return
+      }
+
+      // 调用 DeepSeek API
+      const response = await fetch(CONFIG.DEEPSEEK_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + CONFIG.DEEPSEEK_API_KEY
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [
+            { role: 'system', content: '你是一个专业的TWS/蓝牙耳机行业专家，精通声学、蓝牙、射频、模具、结构、电子、软件、NPI流程、防水、编码格式、传感器、电池充电、调音EQ等领域。请用中文回答，专业、准确、简洁。可使用markdown格式（**加粗**、列表、表格等）。如果问题不是耳机行业相关，请礼貌引导回耳机话题。' },
+            { role: 'user', content: q }
+          ],
+          temperature: 0.7,
+          max_tokens: 2000
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('API请求失败: ' + response.status)
+      }
+
+      const data = await response.json()
+      const answer = data.choices?.[0]?.message?.content || ''
+
+      if (!answer) {
+        throw new Error('API返回为空')
+      }
+
+      setAiAnswer({ text: answer, source: 'deepseek' })
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        setAiAnswer({ text: '**请求超时**\n\nDeepSeek API 响应超时（30秒），请稍后重试。', source: 'deepseek' })
+      } else {
+        setAiAnswer({ text: '**调用 DeepSeek 时出错**\n\n' + err.message + '\n\n请检查网络连接或 API Key 是否有效。', source: 'deepseek' })
+      }
+    } finally {
+      clearTimeout(timeoutId)
+      setAiLoading(false)
+    }
   }
   const exportWorkbookToExcel = () => {
     const wb = XLSX.utils.book_new()
@@ -2993,6 +3511,64 @@ export default function App() {
     return { totalItems, totalRequired, riskCount }
   }, [materials, keyMaterialKeys.length])
 
+  // 到期预警数据（按当前阶段过滤）
+  const warningData = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const overdue = []
+    const within7 = []
+    const within20 = []
+    materials.forEach((m) => {
+      if (m.phase !== filterPhase) return
+      if (m.completed) return
+      const etaStr = String(m.eta || '').trim()
+      if (!etaStr) return
+      const eta = new Date(etaStr)
+      if (Number.isNaN(eta.getTime())) return
+      eta.setHours(0, 0, 0, 0)
+      const days = Math.ceil((eta - today) / 86400000)
+      if (days < 0) {
+        overdue.push(m)
+      } else if (days <= 7) {
+        within7.push(m)
+      } else if (days <= 20) {
+        within20.push(m)
+      }
+    })
+    return { overdue, within7, within20, hasWarning: overdue.length > 0 || within7.length > 0 }
+  }, [materials, filterPhase])
+
+  // 长周期物料预警数据（基于 MP 放行时间）
+  const longLeadWarningData = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const overdue = []
+    const within30 = []
+    const items = []
+    const sopMilestone = projectPlanMilestones.find(m => m.label === 'SOP (Start of Production)')
+    longLeadMaterials.forEach((item) => {
+      if (!item.mpLeadDays) return
+      if (!sopMilestone) return
+      const sopCell = projectPlanCells[`${sopMilestone.id}_pc_1`] || projectPlanCells[`${sopMilestone.id}_pc_0`] || ''
+      if (!sopCell) return
+      const days = parseInt(item.mpLeadDays, 10)
+      if (!days) return
+      const releaseDate = addDaysToYmd(sopCell, -days)
+      if (!releaseDate) return
+      const rd = new Date(releaseDate)
+      if (Number.isNaN(rd.getTime())) return
+      rd.setHours(0, 0, 0, 0)
+      const diff = Math.ceil((rd - today) / 86400000)
+      items.push({ name: item.name || '未命名', releaseDate, diff })
+      if (diff < 0) {
+        overdue.push(item)
+      } else if (diff <= 30) {
+        within30.push(item)
+      }
+    })
+    return { overdue, within30, items, hasWarning: overdue.length > 0 }
+  }, [longLeadMaterials, projectPlanMilestones, projectPlanCells])
+
   // 更新单行字段（数量、名称、版本、颜色、供应商等）
   const updateMaterial = (id, field, value) => {
     setMaterials((prev) =>
@@ -3365,7 +3941,47 @@ export default function App() {
               保存
             </button>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
+          {/* 时间/日期/天气 */}
+          <div className="ml-auto flex items-center gap-1.5 text-xs text-slate-500 select-none">
+            <button
+              onClick={() => { setShowCalendar(true); setCalYear(currentTime.getFullYear()); setCalMonth(currentTime.getMonth()); setSelectedDate(''); }}
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              title="点击查看日历与日程"
+            >
+              <span>{currentTime.getDate()}日</span>
+              <span className="text-slate-300">|</span>
+              <span>第{getISOWeekNumber(currentTime)}周</span>
+              <span className="text-slate-300">|</span>
+              <span className="flex items-center gap-1">
+                {weatherText !== '--' ? (
+                  (() => {
+                    const c = weatherText.toLowerCase();
+                    if (c.includes('sunny') || c.includes('clear')) return <Sun className="w-3.5 h-3.5 text-slate-400" />;
+                    if (c.includes('rain') || c.includes('drizzle') || c.includes('shower')) return <CloudRain className="w-3.5 h-3.5 text-slate-400" />;
+                    if (c.includes('thunder') || c.includes('storm')) return <CloudLightning className="w-3.5 h-3.5 text-slate-400" />;
+                    if (c.includes('snow') || c.includes('sleet') || c.includes('ice')) return <CloudSnow className="w-3.5 h-3.5 text-slate-400" />;
+                    if (c.includes('fog') || c.includes('mist') || c.includes('haze')) return <CloudFog className="w-3.5 h-3.5 text-slate-400" />;
+                    if (c.includes('cloud') || c.includes('overcast')) return <Cloud className="w-3.5 h-3.5 text-slate-400" />;
+                    return <Sun className="w-3.5 h-3.5 text-slate-400" />;
+                  })()
+                ) : null}
+                <span>{weatherTemp}</span>
+              </span>
+            </button>
+          </div>
+          {/* 每日名言 */}
+          {dailyQuote.content && (
+            <div className="basis-full flex justify-end -mt-1 mb-0.5">
+              <div className="flex items-center gap-2 bg-amber-50/60 rounded-md px-4 py-1.5 border-l-2 border-amber-400 max-w-lg mr-2">
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  <span className="italic">{dailyQuote.content}</span>
+                  {dailyQuote.note && <span className="mx-1.5 text-slate-300">/</span>}
+                  {dailyQuote.note && <span>{dailyQuote.note}</span>}
+                </p>
+              </div>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-1.5 basis-full">
             <button
               onClick={handleBackToList}
               className="btn-ghost btn-sm"
@@ -3375,64 +3991,72 @@ export default function App() {
             </button>
             <span className="w-px h-5 bg-surface-200"></span>
             <button
-              onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectPlan(false); setShowProjectMembers(false); setShowWorkbook(false); setShowProductSpec(true) }}
+              onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectPlan(false); setShowProjectMembers(false); setShowWorkbook(false); setShowNotes(false); setShowProductSpec(true) }}
               className="btn-ghost btn-sm"
             >
               <Box className="w-3.5 h-3.5" />
               产品规格
             </button>
             <button
-              onClick={() => { setModalOpen(false); setShowProjectPlan(false); setShowProjectMembers(false); setShowWorkbook(false); setShowProductSpec(false); setShowDistributionList(true) }}
+              onClick={() => { setModalOpen(false); setShowProjectPlan(false); setShowProjectMembers(false); setShowWorkbook(false); setShowProductSpec(false); setShowNotes(false); setShowDistributionList(true) }}
               className="btn-ghost btn-sm"
             >
               <ClipboardList className="w-3.5 h-3.5" />
               样机分发
             </button>
             <button
-              onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectMembers(false); setShowWorkbook(false); setShowProductSpec(false); setShowProjectPlan(true) }}
+              onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectMembers(false); setShowWorkbook(false); setShowProductSpec(false); setShowNotes(false); setShowProjectPlan(true) }}
               className="btn-ghost btn-sm"
             >
               <Calendar className="w-3.5 h-3.5" />
               项目计划
             </button>
             <button
-              onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectPlan(false); setShowWorkbook(false); setShowProductSpec(false); setShowProjectMembers(true) }}
+              onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectPlan(false); setShowWorkbook(false); setShowProductSpec(false); setShowNotes(false); setShowProjectMembers(true) }}
               className="btn-ghost btn-sm"
             >
               <Users className="w-3.5 h-3.5" />
               项目成员
             </button>
             <button
-              onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectPlan(false); setShowProjectMembers(false); setShowProductSpec(false); setShowTechReserve(true); setShowWorkbook(false) }}
+              onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectPlan(false); setShowProjectMembers(false); setShowProductSpec(false); setShowNotes(false); setShowTechReserve(true); setShowWorkbook(false) }}
               className="btn-ghost btn-sm"
             >
               <Layers className="w-3.5 h-3.5" />
               技术储备
             </button>
             <button
-              onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectPlan(false); setShowProjectMembers(false); setShowProductSpec(false); setShowTechReserve(false); setShowWorkbook(true) }}
+              onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectPlan(false); setShowProjectMembers(false); setShowProductSpec(false); setShowTechReserve(false); setShowNotes(false); setShowWorkbook(true) }}
               className="btn-ghost btn-sm"
             >
               <BookOpen className="w-3.5 h-3.5" />
               项目问题点
             </button>
             <button
-              onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectPlan(false); setShowProjectMembers(false); setShowProductSpec(false); setShowTechReserve(false); setShowWorkbook(false); setShowTrialIssues(true) }}
+              onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectPlan(false); setShowProjectMembers(false); setShowProductSpec(false); setShowTechReserve(false); setShowWorkbook(false); setShowNotes(false); setShowTrialIssues(true) }}
               className="btn-ghost btn-sm"
             >
               <AlertCircle className="w-3.5 h-3.5" />
               试产问题点
             </button>
             <button
-              onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectPlan(false); setShowProjectMembers(false); setShowProductSpec(false); setShowTechReserve(false); setShowWorkbook(false); setShowTrialIssues(false); setShowFileLibrary(true) }}
+              onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectPlan(false); setShowProjectMembers(false); setShowProductSpec(false); setShowTechReserve(false); setShowWorkbook(false); setShowTrialIssues(false); setShowNotes(false); setShowFileLibrary(true) }}
               className="btn-ghost btn-sm"
             >
               <FolderOpen className="w-3.5 h-3.5" />
               文件资料
             </button>
+            <button
+              onClick={() => { setModalOpen(false); setShowDistributionList(false); setShowProjectPlan(false); setShowProjectMembers(false); setShowProductSpec(false); setShowTechReserve(false); setShowWorkbook(false); setShowTrialIssues(false); setShowFileLibrary(false); setShowNotes(true) }}
+              className="btn-ghost btn-sm"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              项目笔记
+            </button>
           </div>
         </div>
         <p className="text-sm text-slate-500 mt-2">NPI 试产阶段核心物料齐套进度</p>
+
       </header>
 
       {showProductSpec ? (
@@ -4048,8 +4672,8 @@ export default function App() {
           </section>
         </main>
       ) : showTechReserve ? (
-        /* 技术储备页面 */
-        <main className="max-w-6xl mx-auto px-4 py-4">
+        <>
+          <main className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2">
               <button
@@ -4278,7 +4902,131 @@ export default function App() {
               })()}
             </section>
           </div>
+
+          {/* AI 知识问答 */}
+          <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden mt-6">
+            <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-slate-200">
+              <Sparkles className="w-5 h-5 text-blue-600" />
+              <span className="text-sm font-semibold text-slate-800">AI 知识问答</span>
+              <span className="text-[11px] text-slate-400 ml-1">内置知识库 · 零消耗</span>
+            </div>
+            <div className="p-4 space-y-3">
+              {/* 输入区 */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={aiQuestion}
+                  onChange={(e) => setAiQuestion(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleAiAsk()
+                    }
+                  }}
+                  placeholder="输入耳机行业相关问题，如：什么是 ANC 降噪？"
+                  className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={aiLoading}
+                />
+                <button
+                  type="button"
+                  onClick={handleAiAsk}
+                  disabled={aiLoading || !aiQuestion.trim()}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {aiLoading ? (
+                    <span className="flex gap-1">
+                      <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </span>
+                  ) : (
+                    <>提问</>
+                  )}
+                </button>
+              </div>
+
+              {/* 预设问题 */}
+              {!aiAnswer && !aiLoading && (
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-xs text-slate-400 py-1">试试问：</span>
+                  {['什么是 ANC 主动降噪？', 'NPI 各阶段有哪些？', 'TWS 防水等级怎么分？'].map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => {
+                        setAiQuestion(q)
+                        setTimeout(() => handleAiAsk(q), 50)
+                      }}
+                      className="text-xs rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-colors"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* 回答区域 */}
+              {aiLoading && (
+                <div className="rounded-lg bg-slate-50 p-4 border border-slate-200 animate-pulse">
+                  <div className="h-4 bg-slate-200 rounded w-3/4 mb-3" />
+                  <div className="h-4 bg-slate-200 rounded w-1/2 mb-2" />
+                  <div className="h-4 bg-slate-200 rounded w-5/6" />
+                </div>
+              )}
+              {aiAnswer && !aiLoading && (
+                <div className="rounded-lg bg-slate-50 p-4 border border-slate-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="w-4 h-4 text-blue-500" />
+                    <span className="text-xs font-medium text-blue-600">
+                      {aiAnswer.source === 'reserve' ? '来自技术储备库' : '来自 DeepSeek'}
+                    </span>
+                  </div>
+                  <div className="text-sm text-slate-700 leading-relaxed">
+                    {renderAiAnswer(aiAnswer.text)}
+                  </div>
+                  {aiAnswer.source === 'deepseek' && (
+                    <div className="mt-3 flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const module = autoClassifyModule(aiQuestion)
+                          const term = extractTerm(aiQuestion)
+                          const firstLine = aiAnswer.text.split('\n').filter(l => l.trim() && !l.startsWith('**') && !l.startsWith('|') && !l.startsWith('-'))[0] || ''
+                          const summary = firstLine.slice(0, 80)
+                          const details = aiAnswer.text
+                          addTechEntry(module)
+                          setTimeout(() => {
+                            const entries = techReserve[module] || []
+                            const newEntry = entries[0]
+                            if (newEntry) {
+                              updateTechEntry(module, newEntry.id, 'term', term)
+                              updateTechEntry(module, newEntry.id, 'summary', summary)
+                              updateTechEntry(module, newEntry.id, 'details', details)
+                              updateTechEntry(module, newEntry.id, 'tags', module + ', AI导入')
+                              updateTechEntry(module, newEntry.id, 'updatedAt', Date.now())
+                            }
+                          }, 50)
+                          setAiImportHint(module)
+                          setTimeout(() => setAiImportHint(null), 2000)
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs text-blue-700 hover:bg-blue-100"
+                      >
+                        <BookmarkPlus className="w-3.5 h-3.5" />
+                        导入技术储备
+                      </button>
+                      {aiImportHint && (
+                        <span className="text-xs text-emerald-600 font-medium">
+                          ✓ 已导入技术储备（{aiImportHint}）
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </main>
+        </>
       ) : showWorkbook ? (
         /* 项目问题点页面 */
         <main className="max-w-6xl mx-auto px-4 py-4">
@@ -4314,6 +5062,53 @@ export default function App() {
             <p className="text-sm text-emerald-600 mb-3">已保存，数据已更新</p>
           )}
           <p className="text-slate-600 text-sm mb-4">按分类记录项目中发现的问题，Actions or Details 可定期输入更新。</p>
+
+          {/* 问题点统计卡片 */}
+          {(() => {
+            const allEntries = WORKBOOK_CATEGORIES.flatMap((cat) => (workbookEntries[cat] || []).map((e) => ({ ...e, _cat: cat })))
+            const total = allEntries.length
+            const riskCounts = { '高': 0, '中': 0, '低': 0, '无': 0 }
+            const personCounts = {}
+            allEntries.forEach((e) => {
+              const rl = e.riskLevel || '无'
+              riskCounts[rl] = (riskCounts[rl] || 0) + 1
+              if (rl !== '无' && e.responsiblePerson) {
+                personCounts[e.responsiblePerson] = (personCounts[e.responsiblePerson] || 0) + 1
+              }
+            })
+            const sortedPeople = Object.entries(personCounts).sort((a, b) => b[1] - a[1])
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <div className="text-2xl font-bold text-slate-800">{total}</div>
+                  <div className="text-xs text-slate-500">总问题数</div>
+                </div>
+                {['高', '中', '低', '无'].map((level) => {
+                  const colors = { '高': 'border-red-200 bg-red-50 text-red-700', '中': 'border-amber-200 bg-amber-50 text-amber-700', '低': 'border-blue-200 bg-blue-50 text-blue-700', '无': 'border-slate-200 bg-slate-50 text-slate-600' }
+                  return (
+                    <div key={level} className={`rounded-lg border ${colors[level]} p-3`}>
+                      <div className="text-2xl font-bold">{riskCounts[level] || 0}</div>
+                      <div className="text-xs">风险：{level}</div>
+                    </div>
+                  )
+                })}
+                {sortedPeople.length > 0 && (
+                  <div className="col-span-full rounded-lg border border-slate-200 bg-white p-3">
+                    <div className="text-xs font-medium text-slate-500 mb-1.5">待跟进问题 · 按负责人</div>
+                    <div className="flex flex-wrap gap-2">
+                      {sortedPeople.map(([name, count]) => (
+                        <span key={name} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-700">
+                          {name}
+                          <span className="font-medium text-slate-500">{count}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+
           <div className="space-y-6">
             {WORKBOOK_CATEGORIES.map((category) => (
               <section key={category} className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
@@ -4431,7 +5226,71 @@ export default function App() {
             <p className="text-sm text-emerald-600 mb-3">已保存，数据已更新</p>
           )}
           <p className="text-slate-600 text-sm mb-4">按 DV1/DV2/PV 阶段记录试产中发现的问题，跟踪处理进度。</p>
-          
+
+          {/* 试产问题统计卡片 */}
+          {(() => {
+            const phaseIssues = trialIssues[trialIssuesPhase] || []
+            const total = phaseIssues.length
+            const statusCounts = { '待处理': 0, '处理中': 0, '已解决': 0 }
+            const priorityCounts = { '高': 0, '中': 0, '低': 0 }
+            const ownerOpen = {}
+            phaseIssues.forEach((issue) => {
+              const s = issue.status || '待处理'
+              statusCounts[s] = (statusCounts[s] || 0) + 1
+              const p = issue.priority || '中'
+              priorityCounts[p] = (priorityCounts[p] || 0) + 1
+              if (s !== '已解决' && issue.owner) {
+                ownerOpen[issue.owner] = (ownerOpen[issue.owner] || 0) + 1
+              }
+            })
+            const sortedOwners = Object.entries(ownerOpen).sort((a, b) => b[1] - a[1])
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <div className="text-2xl font-bold text-slate-800">{total}</div>
+                  <div className="text-xs text-slate-500">{trialIssuesPhase} 阶段总问题数</div>
+                </div>
+                {['待处理', '处理中', '已解决'].map((st) => {
+                  const colors = { '待处理': 'border-red-200 bg-red-50 text-red-700', '处理中': 'border-amber-200 bg-amber-50 text-amber-700', '已解决': 'border-emerald-200 bg-emerald-50 text-emerald-700' }
+                  return (
+                    <div key={st} className={`rounded-lg border ${colors[st]} p-3`}>
+                      <div className="text-2xl font-bold">{statusCounts[st] || 0}</div>
+                      <div className="text-xs">{st}</div>
+                    </div>
+                  )
+                })}
+                <div className="col-span-full grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="rounded-lg border border-slate-200 bg-white p-3">
+                    <div className="text-xs font-medium text-slate-500 mb-1.5">按优先级</div>
+                    <div className="flex gap-3">
+                      {['高', '中', '低'].map((p) => {
+                        const pColors = { '高': 'text-red-600', '中': 'text-amber-600', '低': 'text-blue-600' }
+                        return (
+                          <span key={p} className={`text-sm font-medium ${pColors[p]}`}>
+                            {p} {priorityCounts[p] || 0}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  {sortedOwners.length > 0 && (
+                    <div className="rounded-lg border border-slate-200 bg-white p-3">
+                      <div className="text-xs font-medium text-slate-500 mb-1.5">待处理 · 按负责人</div>
+                      <div className="flex flex-wrap gap-2">
+                        {sortedOwners.map(([name, count]) => (
+                          <span key={name} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-700">
+                            {name}
+                            <span className="font-medium text-slate-500">{count}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+
           {/* 阶段切换 */}
           <div className="flex items-center gap-2 mb-4">
             {['DV1', 'DV2', 'PV'].map((phase) => (
@@ -4939,111 +5798,258 @@ export default function App() {
           </div>
 
         </main>
+
+      ) : showNotes ? (
+        /* 项目笔记页面 */
+        <main className="max-w-6xl mx-auto px-4 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowNotes(false)}
+                className="btn-secondary btn-sm"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                返回
+              </button>
+              <h2 className="text-base font-semibold text-slate-800">项目笔记</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { handleSave(); setNotesSaveHint(true); setTimeout(() => setNotesSaveHint(false), 2000) }}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-emerald-700"
+              >
+                <Save className="w-4 h-4" />
+                保存
+              </button>
+            </div>
+          </div>
+          {notesSaveHint && (
+            <p className="text-sm text-emerald-600 mb-3">已保存，数据已更新</p>
+          )}
+          <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex flex-col md:flex-row">
+            {/* 左侧：笔记列表 */}
+            <aside className="md:w-64 border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50/60">
+              <div className="p-3 border-b border-slate-200">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={notesSearch}
+                    onChange={(e) => setNotesSearch(e.target.value)}
+                    placeholder="搜索标题 / 标签"
+                    className="flex-1 rounded-lg border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newNote = { id: "note_" + Date.now(), title: "", content: "", tags: "", createdAt: Date.now(), updatedAt: Date.now() };
+                      setNotesData(prev => [newNote, ...prev]);
+                      setNotesActiveId(newNote.id);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 text-white px-2.5 py-1.5 text-xs font-medium hover:bg-blue-700"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    新增
+                  </button>
+                </div>
+              </div>
+              <div className="p-2 max-h-[480px] overflow-y-auto">
+                {(() => {
+                  const q = notesSearch.trim().toLowerCase();
+                  const filtered = notesData.filter(n => {
+                    if (!q) return true;
+                    return n.title.toLowerCase().includes(q) || n.tags.toLowerCase().includes(q);
+                  });
+                  if (filtered.length === 0) {
+                    return <p className="text-xs text-slate-400 px-2 py-4 text-center">{q ? "无匹配记录" : "暂无笔记，点击「新增」开始记录"}</p>;
+                  }
+                  return filtered.map(n => (
+                    <button
+                      key={n.id}
+                      type="button"
+                      onClick={() => setNotesActiveId(n.id)}
+                      className={"w-full text-left px-3 py-2 rounded-lg mb-1 text-xs " + (notesActiveId === n.id ? "bg-slate-800 text-white" : "hover:bg-slate-100 text-slate-800")}
+                    >
+                      <div className="font-semibold truncate">{n.title || "无标题"}</div>
+                      {n.tags && <div className={"mt-0.5 truncate " + (notesActiveId === n.id ? "text-slate-300" : "text-slate-400")}>{n.tags.split(",").map(t => t.trim()).filter(Boolean).map(t => "#" + t).join(" ")}</div>}
+                      <div className={"mt-0.5 text-[10px] " + (notesActiveId === n.id ? "text-slate-400" : "text-slate-400")}>{n.updatedAt ? new Date(n.updatedAt).toLocaleDateString("zh-CN") : ""}</div>
+                    </button>
+                  ));
+                })()}
+              </div>
+            </aside>
+            {/* 右侧：笔记编辑 */}
+            <section className="flex-1 p-4 space-y-4">
+              {(() => {
+                const active = notesData.find(n => n.id === notesActiveId);
+                if (!active) {
+                  return <p className="text-sm text-slate-400 text-center py-8">选择左侧笔记或点击「新增」创建</p>;
+                }
+                const updateNote = (field, value) => {
+                  setNotesData(prev => prev.map(n => n.id === active.id ? { ...n, [field]: value, updatedAt: Date.now() } : n));
+                };
+                return (
+                  <>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <input
+                        type="text"
+                        value={active.title}
+                        onChange={(e) => updateNote("title", e.target.value)}
+                        placeholder="笔记标题"
+                        className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm("确定删除该笔记？")) {
+                            setNotesData(prev => prev.filter(n => n.id !== active.id));
+                            setNotesActiveId(notesData.length > 1 ? notesData.find(n => n.id !== active.id)?.id || null : null);
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-700 hover:bg-red-100"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        删除
+                      </button>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">标签</label>
+                      <input
+                        type="text"
+                        value={active.tags}
+                        onChange={(e) => updateNote("tags", e.target.value)}
+                        placeholder="用逗号分隔，如：会议纪要、声学、客户"
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">内容</label>
+                      <RichTextEditor
+                        value={active.content || ""}
+                        onChange={(html) => updateNote("content", html)}
+                        placeholder="记录项目笔记…"
+                      />
+                    </div>
+                    <div className="flex items-center gap-4 text-[11px] text-slate-500">
+                      <span>创建：{new Date(active.createdAt).toLocaleString("zh-CN")}</span>
+                      <span>更新：{new Date(active.updatedAt).toLocaleString("zh-CN")}</span>
+                    </div>
+                  </>
+                );
+              })()}
+            </section>
+          </div>
+        </main>
       ) : (
       <main className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-        {/* 全局概览卡片 */}
-        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="card p-5 hover:shadow-elevated transition-shadow duration-200">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-brand-50 text-brand-600">
-                <Package className="w-5 h-5" />
+
+        {/* 到期预警横幅 */}
+        {showWarningBanner && (warningData.hasWarning || longLeadWarningData.hasWarning) && (
+          <div className="rounded-lg border border-amber-200 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-amber-50 to-red-50 border-b border-amber-200">
+              <div className="flex items-center gap-3 flex-wrap text-sm">
+                <span className="font-semibold text-slate-800">⚠️ 物料到期提醒</span>
+                {warningData.overdue.length > 0 && <span className="text-red-700 font-medium">{warningData.overdue.length} 个已逾期</span>}
+                {warningData.within7.length > 0 && <span className="text-orange-700 font-medium">{warningData.within7.length} 个 7 天内到期</span>}
+                {longLeadWarningData.overdue.length > 0 && <span className="text-red-700 font-medium">长周期 {longLeadWarningData.overdue.length} 个逾期</span>}
+                {longLeadWarningData.within30.length > 0 && <span className="text-orange-700 font-medium">长周期 {longLeadWarningData.within30.length} 个即将到期</span>}
               </div>
-              <div>
-                <p className="text-xs font-medium text-surface-500 uppercase tracking-wide">关键物料项数</p>
-                <p className="text-2xl font-bold text-surface-900 mt-0.5">{stats.totalItems}</p>
-              </div>
-            </div>
-          </div>
-          <div className="card p-5 hover:shadow-elevated transition-shadow duration-200">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600">
-                <TrendingUp className="w-5 h-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-surface-500 uppercase tracking-wide">试产时间</p>
-                <p className="text-2xl font-bold text-surface-900 mt-0.5">{trialProductionTime[filterPhase] || '-'}</p>
-              </div>
-            </div>
-          </div>
-          <div className="card p-5 hover:shadow-elevated transition-shadow duration-200">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-amber-50 text-amber-600">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-surface-500 uppercase tracking-wide">风险物料数</p>
-                <p className="text-2xl font-bold text-surface-900 mt-0.5">{stats.riskCount}</p>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => document.querySelector('.overflow-x-auto')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  className="text-xs rounded-lg bg-white border border-amber-300 px-2.5 py-1 text-amber-800 hover:bg-amber-50"
+                >
+                  查看物料
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowWarningBanner(false)}
+                  className="p-1 rounded hover:bg-black/5 text-slate-400"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             </div>
+            <div className="px-4 py-2.5 bg-white space-y-2">
+              {warningData.hasWarning && (
+                <div>
+                  <div className="text-[11px] font-medium text-slate-500 mb-1">当前阶段（{filterPhase}）</div>
+                  <div className="flex flex-wrap gap-3">
+                    {warningData.overdue.length > 0 && (
+                      <span className="inline-flex items-center gap-1.5 text-xs">
+                        <span className="w-2 h-2 rounded-full bg-red-500" />
+                        <span className="text-red-700">{warningData.overdue.length} 个已逾期</span>
+                        <span className="text-slate-400">|</span>
+                        <span className="text-slate-500">{warningData.overdue.map(m => m.name).join('、')}</span>
+                      </span>
+                    )}
+                    {warningData.within7.length > 0 && (
+                      <span className="inline-flex items-center gap-1.5 text-xs">
+                        <span className="w-2 h-2 rounded-full bg-orange-400" />
+                        <span className="text-orange-700">{warningData.within7.length} 个 7 天内到期</span>
+                      </span>
+                    )}
+                    {warningData.within20.length > 0 && (
+                      <span className="inline-flex items-center gap-1.5 text-xs">
+                        <span className="w-2 h-2 rounded-full bg-blue-400" />
+                        <span className="text-blue-700">{warningData.within20.length} 个 20 天内到期</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+              {longLeadWarningData.hasWarning && (
+                <div>
+                  <div className="text-[11px] font-medium text-slate-500 mb-1">长周期物料（基于 MP 放行时间）</div>
+                  <div className="flex flex-wrap gap-3">
+                    {longLeadWarningData.overdue.length > 0 && (
+                      <span className="inline-flex items-center gap-1.5 text-xs">
+                        <span className="w-2 h-2 rounded-full bg-red-500" />
+                        <span className="text-red-700">{longLeadWarningData.overdue.length} 个已逾期</span>
+                        <span className="text-slate-400">|</span>
+                        <span className="text-slate-500">{longLeadWarningData.overdue.map(m => m.name || '未命名').join('、')}</span>
+                      </span>
+                    )}
+                    {longLeadWarningData.within30.length > 0 && (
+                      <span className="inline-flex items-center gap-1.5 text-xs">
+                        <span className="w-2 h-2 rounded-full bg-orange-400" />
+                        <span className="text-orange-700">{longLeadWarningData.within30.length} 个 30 天内到期</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </section>
+        )}
 
         {/* 筛选 + 阶段切换 + 添加按钮 */}
         <section className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1.5 text-surface-500">
-            <Filter className="w-4 h-4" />
-            <span className="text-sm font-medium">筛选</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <select
-              value={filterVersion}
-              onChange={(e) => setFilterVersion(e.target.value)}
-              className="select text-sm"
-            >
-              <option value="全部">使用版本：全部</option>
-              {VERSIONS.map((v) => (
-                <option key={v} value={v}>{v}</option>
-              ))}
-            </select>
-          </div>
-          <span className="text-surface-300">|</span>
           <div className="flex items-center gap-1">
-            <span className="text-sm font-medium text-surface-500">阶段：</span>
+            <button
+              type="button"
+              onClick={() => { setShowProductSpec(false); setShowDistributionList(false); setShowProjectPlan(false); setShowProjectMembers(false); setShowWorkbook(false); setShowTrialIssues(false); setShowFileLibrary(false); setShowTechReserve(false) }}
+              className="p-1.5 rounded text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
+              title="回到主面板"
+            >
+              <Home className="w-4 h-4" />
+            </button>
+            <span className="w-px h-5 bg-surface-300 mx-1"></span>
+            <span className="text-sm font-semibold text-surface-600">阶段：</span>
             {PHASES.map((p) => (
               <button
                 key={p}
                 type="button"
                 onClick={() => { setFilterPhase(p); setProductDemandPhase(p) }}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1 ${
+                className={`rounded-lg px-5 py-2 text-base font-semibold transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1 ${
                   filterPhase === p
-                    ? 'bg-brand-600 text-white shadow-sm'
-                    : 'bg-white border border-surface-300 text-surface-600 hover:bg-surface-50 hover:border-surface-400'
+                    ? 'bg-brand-600 text-white shadow-md scale-105'
+                    : 'bg-white border-2 border-surface-300 text-surface-600 hover:bg-surface-50 hover:border-brand-400'
                 }`}
               >
                 {p}
               </button>
             ))}
-          </div>
-          <span className="text-surface-300">|</span>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-slate-600">试产时间：</span>
-            <div className="flex items-center gap-1">
-              <span className="text-xs font-semibold text-blue-600 w-8">{filterPhase}</span>
-              <span className="rounded-lg border border-transparent px-3 py-2 text-sm text-slate-800 bg-slate-50" title="从里程碑计划 (Actual plan) 自动获取">
-                {trialProductionTime[filterPhase] || '-'}
-              </span>
-            </div>
-            {(() => {
-              const date = trialProductionTime[filterPhase]
-              if (!date) return null
-              const days = diffDaysFromToday(date)
-              if (days === null) return null
-              let colorClass = 'text-slate-400'
-              let text = ''
-              if (days > 0) { colorClass = 'text-emerald-600'; text = `距离试产还有 ${days} 天` }
-              else if (days === 0) { colorClass = 'text-amber-600'; text = '今天是试产日' }
-              else { colorClass = 'text-red-500'; text = `试产已过 ${Math.abs(days)} 天` }
-              return <span className={`text-sm font-medium whitespace-nowrap ${colorClass}`}>{text}</span>
-            })()}
-            <button
-              type="button"
-              onClick={() => setPhaseStartRangesExpanded((v) => !v)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-              title={phaseStartRangesExpanded ? '收起阶段时间' : '展开阶段时间'}
-            >
-              {phaseStartRangesExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              {phaseStartRangesExpanded ? '收起阶段时间' : '展开阶段时间'}
-            </button>
           </div>
           {phaseStartRangesExpanded && (
           <div className="flex flex-wrap items-center gap-4 w-full mt-2">
@@ -5484,8 +6490,10 @@ export default function App() {
                   {longLeadMaterials.map((item) => {
                     const mpReleaseDate = (() => {
                       if (!item.mpLeadDays) return ''
-                      // SOP time from project plan (milestone 'SOP (Start of Production)', column 'Actual plan')
-                      const sopCell = projectPlanCells['pm_10_pc_1']
+                      // SOP time from milestone plan by label (mirrors trialProductionTime lookup)
+                      const sopMilestone = projectPlanMilestones.find(m => m.label === 'SOP (Start of Production)')
+                      if (!sopMilestone) return ''
+                      const sopCell = projectPlanCells[`${sopMilestone.id}_pc_1`] || projectPlanCells[`${sopMilestone.id}_pc_0`] || ''
                       if (!sopCell) return ''
                       const days = parseInt(item.mpLeadDays, 10)
                       if (!days) return ''
@@ -5647,21 +6655,6 @@ export default function App() {
                           </div>
                         )}
                       </div>
-                      <span className="text-xs text-slate-500">版本：</span>
-                      <button
-                        type="button"
-                        onClick={() => setMode('可拆不可拆')}
-                        className={`rounded px-3 py-1.5 text-xs font-medium ${mode === '可拆不可拆' ? 'bg-slate-700 text-white' : 'bg-white border border-slate-300 text-slate-600 hover:bg-slate-50'}`}
-                      >
-                        可拆 / 不可拆
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setMode('通用')}
-                        className={`rounded px-3 py-1.5 text-xs font-medium ${mode === '通用' ? 'bg-slate-700 text-white' : 'bg-white border border-slate-300 text-slate-600 hover:bg-slate-50'}`}
-                      >
-                        仅通用
-                      </button>
                     </div>
                   </div>
                   <div className={mode === '通用' ? 'flex justify-center overflow-x-auto' : 'overflow-x-auto'}>
@@ -6106,6 +7099,321 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* 浮动面板：每日待办 + 番茄钟 */}
+      {widgetOpen && (
+        <div
+          ref={widgetRef}
+          className="fixed bottom-20 right-6 z-50 w-80 max-h-96 bg-white rounded-xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden"
+        >
+          {/* Tab 切换 */}
+          <div className="flex border-b border-slate-200 shrink-0">
+            <button
+              onClick={() => setWidgetTab('todo')}
+              className={`flex-1 py-2.5 text-sm font-medium transition-colors ${widgetTab === 'todo' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              <List className="w-4 h-4 inline-block mr-1" />待办
+            </button>
+            <button
+              onClick={() => setWidgetTab('pomodoro')}
+              className={`flex-1 py-2.5 text-sm font-medium transition-colors ${widgetTab === 'pomodoro' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              <Clock className="w-4 h-4 inline-block mr-1" />番茄钟
+            </button>
+          </div>
+
+          {/* 待办 Tab */}
+          {widgetTab === 'todo' && (
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-3 space-y-1">
+                {getTodayTodos().length === 0 && (
+                  <p className="text-xs text-slate-400 text-center py-4">暂无待办事项</p>
+                )}
+                {getTodayTodos().map((todo) => (
+                  <div key={todo.id} className="flex items-center gap-2 group">
+                    <button onClick={() => toggleTodo(todo.id)} className="shrink-0">
+                      {todo.done ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <Circle className="w-4 h-4 text-slate-300 group-hover:text-slate-400" />
+                      )}
+                    </button>
+                    <span className={`flex-1 text-sm ${todo.done ? 'line-through text-slate-300' : 'text-slate-700'}`}>
+                      {todo.text}
+                    </span>
+                    <button onClick={() => deleteTodo(todo.id)} className="opacity-0 group-hover:opacity-100 shrink-0 p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-red-500 transition-all">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-slate-200 p-3 flex gap-2">
+                <input
+                  type="text"
+                  id="todo-input"
+                  placeholder="添加待办事项..."
+                  className="flex-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.target.value.trim()) {
+                      addTodo(e.target.value)
+                      e.target.value = ''
+                    }
+                  }}
+                />
+                <button
+                  onClick={(e) => {
+                    const input = document.getElementById('todo-input')
+                    if (input && input.value.trim()) {
+                      addTodo(input.value)
+                      input.value = ''
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700 shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 番茄钟 Tab */}
+          {widgetTab === 'pomodoro' && (
+            <div className="p-4 flex flex-col items-center space-y-3">
+              {/* 状态标签 */}
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${pomodoroPhase === 'work' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                {pomodoroPhase === 'work' ? '工作中' : '休息中'}
+              </span>
+              {/* 倒计时 */}
+              <div className="text-4xl font-mono font-bold text-slate-800 tabular-nums">
+                {String(Math.floor(pomodoroSeconds / 60)).padStart(2, '0')}:{String(pomodoroSeconds % 60).padStart(2, '0')}
+              </div>
+              {/* 进度条 */}
+              <div className="w-full bg-slate-100 rounded-full h-1.5">
+                <div
+                  className={`h-1.5 rounded-full transition-all duration-1000 ${pomodoroPhase === 'work' ? 'bg-red-500' : 'bg-green-500'}`}
+                  style={{ width: `${((pomodoroPhase === 'work' ? pomodoroSettings.work * 60 : pomodoroSettings.break * 60 - pomodoroSeconds) / (pomodoroPhase === 'work' ? pomodoroSettings.work * 60 : pomodoroSettings.break * 60)) * 100}%` }}
+                />
+              </div>
+              {/* 控制按钮 */}
+              <div className="flex gap-3">
+                <button onClick={togglePomodoro} className="p-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+                  {pomodoroRunning ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                </button>
+                <button onClick={resetPomodoro} className="p-2 rounded-full bg-slate-200 text-slate-600 hover:bg-slate-300 transition-colors">
+                  <RotateCcw className="w-5 h-5" />
+                </button>
+              </div>
+              {/* 设置 */}
+              <div className="flex gap-4 text-sm text-slate-600 w-full pt-1 border-t border-slate-100">
+                <label className="flex items-center gap-1.5">
+                  <span className="text-xs">工作</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="120"
+                    value={pomodoroSettings.work}
+                    onChange={(e) => {
+                      const v = Math.max(1, Math.min(120, parseInt(e.target.value) || 25))
+                      const newSettings = { ...pomodoroSettings, work: v }
+                      setPomodoroSettings(newSettings)
+                      if (!pomodoroRunning && pomodoroPhase === 'work') setPomodoroSeconds(v * 60)
+                    }}
+                    className="w-14 rounded border border-slate-300 px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <span className="text-xs">分</span>
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <span className="text-xs">休息</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="60"
+                    value={pomodoroSettings.break}
+                    onChange={(e) => {
+                      const v = Math.max(1, Math.min(60, parseInt(e.target.value) || 5))
+                      const newSettings = { ...pomodoroSettings, break: v }
+                      setPomodoroSettings(newSettings)
+                      if (!pomodoroRunning && pomodoroPhase === 'break') setPomodoroSeconds(v * 60)
+                    }}
+                    className="w-14 rounded border border-slate-300 px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <span className="text-xs">分</span>
+                </label>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+
+      {/* ===== 日历弹窗 ===== */}
+      {showCalendar && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 animate-fade-in" onClick={() => setShowCalendar(false)}>
+          <div className="bg-white rounded-xl shadow-modal w-full max-w-md max-h-[90vh] flex flex-col animate-scale-in" onClick={(e) => e.stopPropagation()}>
+            {/* 月份导航 */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+              <div className="flex items-center gap-2">
+                <button onClick={() => { if (calMonth === 0) { setCalYear(y => y - 1); setCalMonth(11); } else setCalMonth(m => m - 1); }} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors" title="上月">
+                  <ChevronLeft className="w-4 h-4 text-slate-600" />
+                </button>
+                <h3 className="text-base font-semibold text-slate-800 min-w-[120px] text-center">{calYear}年{calMonth + 1}月</h3>
+                <button onClick={() => { if (calMonth === 11) { setCalYear(y => y + 1); setCalMonth(0); } else setCalMonth(m => m + 1); }} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors" title="下月">
+                  <ChevronRight className="w-4 h-4 text-slate-600" />
+                </button>
+              </div>
+              <button onClick={() => { const d = new Date(); setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); setSelectedDate(formatYmd(d)); }}
+                className="text-xs text-blue-600 hover:text-blue-800 px-2.5 py-1 rounded-lg border border-blue-200 hover:bg-blue-50 transition-colors">
+                今天
+              </button>
+            </div>
+            {/* 日历网格 */}
+            <div className="px-5 py-3">
+              <div className="grid grid-cols-7 text-center text-xs font-medium mb-1">
+                {['日','一','二','三','四','五','六'].map((d, i) => (
+                  <div key={d} className={'py-1.5 ' + ((i === 0 || i === 6) ? 'text-red-400' : 'text-slate-400')}>{d}</div>
+                ))}
+              </div>
+              {(() => {
+                const firstDay = new Date(calYear, calMonth, 1).getDay();
+                const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+                const todayStr = formatYmd(new Date());
+                const currentMonthStr = calYear + '-' + String(calMonth + 1).padStart(2, '0');
+                const cells = [];
+                // Empty cells before first day
+                for (let i = 0; i < firstDay; i++) cells.push(<div key={'e' + i} />);
+                for (let d = 1; d <= daysInMonth; d++) {
+                  const dateStr = currentMonthStr + '-' + String(d).padStart(2, '0');
+                  const isToday = dateStr === todayStr;
+                  const isSelected = dateStr === selectedDate;
+                  const holiday = holidayData[dateStr];
+                  const isHoliday = holiday && holiday.holiday === true;
+                  const isWorkday = holiday && holiday.holiday === false; // 调休上班
+                  const dayOfWeek = new Date(calYear, calMonth, d).getDay();
+                  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                  const hasSchedule = scheduleData[dateStr]?.length > 0;
+
+                  // Determine styling
+                  let cellClass = 'py-1 text-sm rounded-lg transition-all duration-150 relative flex flex-col items-center justify-center ';
+                  if (isSelected) {
+                    cellClass += 'bg-blue-600 text-white shadow-sm ';
+                  } else if (isHoliday) {
+                    cellClass += isToday ? 'bg-red-50 text-red-600 ring-2 ring-red-300 font-semibold ' : 'text-red-600 hover:bg-red-50 ';
+                  } else if (isWorkday) {
+                    cellClass += isToday ? 'bg-orange-50 text-orange-600 ring-2 ring-orange-300 font-semibold ' : 'text-orange-600 hover:bg-orange-50 ';
+                  } else if (isToday) {
+                    cellClass += 'bg-blue-50 text-blue-700 ring-2 ring-blue-400 font-semibold ';
+                  } else if (isWeekend) {
+                    cellClass += 'text-red-400 hover:bg-slate-100 ';
+                  } else {
+                    cellClass += 'text-slate-700 hover:bg-slate-100 ';
+                  }
+
+                  const holidayName = isHoliday ? holiday.name : null;
+
+                  cells.push(
+                    <button key={d} onClick={() => setSelectedDate(dateStr)} className={cellClass}>
+                      <span>{d}</span>
+                      {holidayName && <span className={'mt-0.5 px-1 rounded-sm text-[10px] font-medium leading-tight ' + (isSelected ? 'text-blue-200' : 'bg-red-50 text-red-500')}>{holidayName}</span>}
+                      {hasSchedule && !isSelected && (
+                        <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2">
+                          <span className={'block w-1 h-1 rounded-full ' + (isHoliday ? 'bg-red-400' : isWorkday ? 'bg-orange-400' : 'bg-blue-400')} />
+                        </span>
+                      )}
+                    </button>
+                  );
+                }
+                // Fill remaining cells to maintain grid alignment
+                const totalCells = firstDay + daysInMonth;
+                const remainder = totalCells % 7;
+                if (remainder > 0) {
+                  for (let i = 0; i < 7 - remainder; i++) cells.push(<div key={'f' + i} />);
+                }
+                return <div className="grid grid-cols-7 gap-px">{cells}</div>;
+              })()}
+            </div>
+            {/* 选中日期的日程 */}
+            {selectedDate && (
+              <div className="border-t border-slate-200 px-5 py-3 max-h-[260px] overflow-y-auto custom-scrollbar">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-semibold text-slate-800">
+                    {formatDisplayDate(selectedDate, 'YYYY年MM月DD日')}
+                    {holidayData[selectedDate]?.holiday === true && holidayData[selectedDate]?.name && (
+                      <span className="ml-2 text-xs text-red-500 font-normal bg-red-50 px-1.5 py-0.5 rounded-full">{holidayData[selectedDate].name}</span>
+                    )}
+                    {holidayData[selectedDate]?.holiday === false && (
+                      <span className="ml-2 text-xs text-orange-500 font-normal bg-orange-50 px-1.5 py-0.5 rounded-full">调休上班</span>
+                    )}
+                  </p>
+                  <span className="text-xs text-slate-400">{(scheduleData[selectedDate]?.length || 0)} 项日程</span>
+                </div>
+                {(!scheduleData[selectedDate] || scheduleData[selectedDate].length === 0) && (
+                  <p className="text-xs text-slate-400 mb-3 text-center py-2">暂无日程，请在下方添加</p>
+                )}
+                <ul className="space-y-2 mb-3">
+                  {(scheduleData[selectedDate] || []).map(entry => (
+                    <li key={entry.id} className="bg-slate-50 rounded-lg p-2.5 border border-slate-100">
+                      {editSchId === entry.id ? (
+                        <div className="flex items-center gap-2">
+                          <input type="time" value={editSchTime} onChange={e => setEditSchTime(e.target.value)}
+                            className="w-22 rounded-lg border border-slate-300 px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                          <input type="text" value={editSchDesc} onChange={e => setEditSchDesc(e.target.value)}
+                            className="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" placeholder="描述" />
+                          <button onClick={() => { setScheduleData(prev => ({ ...prev, [selectedDate]: prev[selectedDate].map(e => e.id === entry.id ? { ...e, time: editSchTime, desc: editSchDesc } : e) })); setEditSchId(null); }}
+                            className="px-2.5 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition-colors">保存</button>
+                          <button onClick={() => setEditSchId(null)} className="px-2.5 py-1.5 rounded-lg border border-slate-300 text-slate-600 text-xs hover:bg-slate-100 transition-colors">取消</button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 text-xs font-mono font-medium min-w-[52px] justify-center">{entry.time}</span>
+                          <span className="flex-1 text-sm text-slate-700 truncate">{entry.desc}</span>
+                          <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => { setEditSchId(entry.id); setEditSchTime(entry.time); setEditSchDesc(entry.desc); }}
+                              className="p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-blue-600 transition-colors" title="编辑">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                            </button>
+                            <button onClick={() => { if (confirm('删除此条日程？')) setScheduleData(prev => ({ ...prev, [selectedDate]: prev[selectedDate].filter(e => e.id !== entry.id) })); }}
+                              className="p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-red-600 transition-colors" title="删除">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                {/* 添加新日程 */}
+                <div className="flex items-center gap-2 pt-3 border-t border-slate-200">
+                  <input type="time" value={newSchTime} onChange={e => setNewSchTime(e.target.value)}
+                    className="w-26 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  <input type="text" value={newSchDesc} onChange={e => setNewSchDesc(e.target.value)} placeholder="日程描述"
+                    className="flex-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    onKeyDown={e => { if (e.key === 'Enter' && newSchTime && newSchDesc.trim()) { addSchedule(selectedDate, newSchTime, newSchDesc.trim()); } }} />
+                  <button onClick={() => { if (newSchTime && newSchDesc.trim()) addSchedule(selectedDate, newSchTime, newSchDesc.trim()); }}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    disabled={!newSchTime || !newSchDesc.trim()}>添加</button>
+                </div>
+              </div>
+            )}
+            {/* 图例 + 关闭 */}
+            <div className="border-t border-slate-200 px-5 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> 法定假日</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500 inline-block" /> 调休上班</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> 有日程</span>
+              </div>
+              <button onClick={() => setShowCalendar(false)} className="px-3 py-1 rounded-lg border border-slate-300 text-xs text-slate-600 hover:bg-slate-50 transition-colors">关闭</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 浮动按钮 */}{/* 浮动按钮 */}
+      <button
+        onClick={() => setWidgetOpen((v) => !v)}
+        className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center"
+      >
+        {widgetOpen ? <X className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
+      </button>
+
 
 	    </div>
 	  )
